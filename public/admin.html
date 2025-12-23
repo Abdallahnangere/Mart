@@ -2,380 +2,724 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Sauki Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Sauki Mart</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        body{background:#f5f5f7; font-family:-apple-system,sans-serif;}
-        .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .inp { width: 100%; background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #eee; }
-        .btn { width: 100%; background: black; color: white; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn:hover { opacity: 0.9; }
-        .tab-btn { padding: 10px 20px; font-weight: 600; color: #888; border-radius: 20px; transition: all 0.2s; }
-        .tab-btn.active { background: white; color: black; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .edit-mode { border: 2px solid #007aff; }
+        /* CORE SETTINGS */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: #f2f2f7; 
+            height: 100dvh; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        /* VIEW MANAGEMENT */
+        .view { 
+            position: fixed; 
+            inset: 0; 
+            background: #f2f2f7; 
+            display: none; /* Default hidden */
+            flex-direction: column; 
+            z-index: 10; 
+            overflow-y: auto; 
+            padding-bottom: 40px; 
+        }
+        
+        /* The Home View is the only one visible by default */
+        .view.home { 
+            display: flex; 
+            position: relative; 
+            z-index: 1; 
+            background: #f2f2f7;
+        }
+
+        /* Active State for Modals */
+        .view.active { 
+            display: flex !important; 
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+        }
+
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        /* UTILS */
+        .btn-press:active { transform: scale(0.96); opacity: 0.9; transition: transform 0.1s; }
+        .card-shadow { box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+        
+        .inp { 
+            width: 100%; padding: 16px; border-radius: 16px; 
+            background: white; border: 1px solid #e5e5ea; 
+            font-size: 16px; outline: none; margin-bottom: 12px; 
+        }
+        .inp:focus { border-color: black; }
+        
+        .btn-black { 
+            width: 100%; padding: 18px; border-radius: 16px; 
+            background: black; color: white; font-weight: bold; 
+            font-size: 16px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
-<body class="p-4 md:p-8 max-w-6xl mx-auto">
+<body>
 
-    <!-- LOGIN -->
-    <div id="loginOverlay" class="fixed inset-0 bg-gray-100 z-50 flex items-center justify-center">
-        <div class="card w-96 text-center">
-            <h1 class="text-2xl font-bold mb-6">Admin Access</h1>
-            <input type="email" id="admEmail" placeholder="Email" class="inp">
-            <input type="password" id="admPass" placeholder="Password" class="inp">
-            <button onclick="login()" class="btn">Login</button>
-        </div>
-    </div>
-
-    <!-- DASHBOARD -->
-    <div id="dashboard" class="hidden">
-        <header class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold">Sauki Admin</h1>
-            <div class="bg-gray-200 p-1 rounded-full flex overflow-x-auto">
-                <button onclick="tab('tx', this)" class="tab-btn active">Tx</button>
-                <button onclick="tab('ag', this)" class="tab-btn">Agents</button>
-                <button onclick="tab('prod', this)" class="tab-btn">Products</button>
-                <button onclick="tab('plan', this)" class="tab-btn">Plans</button>
+    <!-- =========================
+       1. HOME VIEW (Visible)
+    ========================== -->
+    <div id="view-home" class="view home h-full">
+        <!-- Header -->
+        <header class="pt-12 pb-6 px-6 bg-white rounded-b-[30px] card-shadow z-20 sticky top-0">
+            <div class="flex justify-between items-start">
+                <div>
+                    <img src="logo.png" onerror="this.src='https://placehold.co/100'" class="w-14 h-14 rounded-2xl mb-3 object-cover shadow-sm">
+                    <h1 class="text-2xl font-black tracking-tight text-gray-900">SAUKI MART</h1>
+                    <p class="text-xs text-gray-500 font-medium">Premium Data & Devices • <span class="text-green-600">SMEDAN Reg.</span></p>
+                </div>
+                <button onclick="checkAgentAuth()" class="bg-gray-50 p-3 rounded-full btn-press border border-gray-100">
+                    <i data-lucide="user" class="w-6 h-6 text-gray-700"></i>
+                </button>
+            </div>
+            
+            <!-- Agent Wallet (Hidden by default) -->
+            <div id="agentWalletDisplay" class="hidden mt-6 bg-gray-900 text-white p-5 rounded-2xl shadow-xl transform transition-all">
+                <div class="flex justify-between items-start mb-4">
+                    <p class="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Wallet Balance</p>
+                    <div class="bg-white/10 p-1 rounded-lg">
+                        <i data-lucide="wallet" class="w-4 h-4 text-white"></i>
+                    </div>
+                </div>
+                <div class="flex justify-between items-end">
+                    <h2 class="text-3xl font-bold tracking-tight" id="agBal">₦0.00</h2>
+                    <button onclick="showView('fund')" class="bg-white text-black px-4 py-2 rounded-xl text-xs font-bold btn-press">Fund +</button>
+                </div>
             </div>
         </header>
 
-        <!-- TRANSACTIONS -->
-        <div id="tx" class="section">
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="card"><p class="text-gray-500 text-xs uppercase">Revenue</p><h2 id="rev" class="text-2xl font-bold">...</h2></div>
-                <div class="card"><p class="text-gray-500 text-xs uppercase">Pending Agents</p><h2 id="pendAg" class="text-2xl font-bold">...</h2></div>
-            </div>
-            <div class="card overflow-hidden overflow-x-auto">
-                <table class="w-full text-left text-sm min-w-[600px]">
-                    <thead><tr class="text-gray-400 border-b">
-                        <th class="p-3">Ref</th>
-                        <th class="p-3">Type</th>
-                        <th class="p-3">Amount</th>
-                        <th class="p-3">Status</th>
-                        <th class="p-3">Action</th>
-                    </tr></thead>
-                    <tbody id="txBody"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- AGENTS -->
-        <div id="ag" class="section hidden">
-            <div class="card overflow-x-auto">
-                <h2 class="font-bold mb-4">Manage Agents</h2>
-                <table class="w-full text-left text-sm min-w-[600px]">
-                    <thead><tr class="text-gray-400 border-b"><th class="p-3">Name</th><th class="p-3">Phone</th><th class="p-3">Status</th><th class="p-3">Action</th></tr></thead>
-                    <tbody id="agBody"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- PRODUCTS -->
-        <div id="prod" class="section hidden">
-            <div class="flex flex-col md:flex-row gap-4">
-                <!-- Add/Edit Form -->
-                <div class="card w-full md:w-1/3 h-fit" id="prodFormCard">
-                    <h2 class="font-bold mb-4" id="prodFormTitle">Add Device</h2>
-                    <input id="pName" placeholder="Name" class="inp">
-                    <input id="pPrice" type="number" placeholder="Price" class="inp">
-                    <input id="pDesc" placeholder="Description" class="inp">
-                    
-                    <label class="text-xs font-bold text-gray-500 mb-2 block">Image (Leave empty to keep current)</label>
-                    <input type="file" id="pImageFile" class="inp border-dashed" accept="image/*">
-                    <input type="hidden" id="pImageBase64">
-                    
-                    <button onclick="saveProd()" id="prodBtn" class="btn mt-2">Save Product</button>
-                    <button onclick="resetProdForm()" id="prodCancelBtn" class="btn bg-gray-200 text-gray-600 mt-2 hidden">Cancel Edit</button>
+        <!-- Menu Grid -->
+        <main class="flex-1 p-6 overflow-y-auto pb-24">
+            <div class="grid grid-cols-2 gap-4">
+                <!-- Shop -->
+                <div onclick="showView('shop')" class="bg-white p-5 rounded-3xl h-40 flex flex-col justify-between card-shadow btn-press cursor-pointer relative overflow-hidden">
+                    <div class="absolute right-[-10px] top-[-10px] bg-blue-50 w-20 h-20 rounded-full z-0"></div>
+                    <i data-lucide="smartphone" class="w-8 h-8 text-blue-600 z-10"></i>
+                    <span class="font-bold text-gray-800 z-10 leading-tight">Shop<br>Devices</span>
                 </div>
-                <!-- List -->
-                <div class="card flex-1">
-                    <h2 class="font-bold mb-4">Inventory</h2>
-                    <div id="prodList" class="space-y-4"></div>
+
+                <!-- Data -->
+                <div onclick="showView('data')" class="bg-black p-5 rounded-3xl h-40 flex flex-col justify-between card-shadow btn-press cursor-pointer relative overflow-hidden">
+                    <div class="absolute right-[-10px] top-[-10px] bg-white/10 w-20 h-20 rounded-full z-0"></div>
+                    <i data-lucide="wifi" class="w-8 h-8 text-white z-10"></i>
+                    <span class="font-bold text-white z-10 leading-tight">Buy<br>Data</span>
+                </div>
+
+                <!-- Track -->
+                <div onclick="showView('track')" class="bg-white p-5 rounded-3xl h-40 flex flex-col justify-between card-shadow btn-press cursor-pointer">
+                    <i data-lucide="search" class="w-8 h-8 text-orange-500"></i>
+                    <span class="font-bold text-gray-800 leading-tight">Track<br>Order</span>
+                </div>
+
+                <!-- Support -->
+                <div onclick="window.open('https://wa.me/2348164135836', '_blank')" class="bg-green-50 p-5 rounded-3xl h-40 flex flex-col justify-between border border-green-100 btn-press cursor-pointer">
+                    <i data-lucide="message-circle" class="w-8 h-8 text-green-600"></i>
+                    <span class="font-bold text-green-800 leading-tight">Chat<br>Support</span>
                 </div>
             </div>
-        </div>
-
-        <!-- PLANS -->
-        <div id="plan" class="section hidden">
-            <div class="flex flex-col md:flex-row gap-4">
-                <!-- Add/Edit Plan Form -->
-                <div class="card w-full md:w-1/3 h-fit" id="planFormCard">
-                    <h2 class="font-bold mb-4" id="planFormTitle">Add Data Plan</h2>
-                    <select id="plNet" class="inp">
-                        <option value="MTN">MTN</option>
-                        <option value="GLO">GLO</option>
-                    </select>
-                    <input id="plNetId" type="number" placeholder="Net ID (1=MTN, 2=GLO)" class="inp">
-                    <input id="plAmigoId" type="number" placeholder="Amigo Plan ID (e.g 1001)" class="inp">
-                    <input id="plName" placeholder="Display Name (e.g 1GB 30Days)" class="inp">
-                    <input id="plPrice" type="number" placeholder="Selling Price" class="inp">
-                    
-                    <button onclick="savePlan()" id="planBtn" class="btn mt-2">Save Plan</button>
-                    <button onclick="resetPlanForm()" id="planCancelBtn" class="btn bg-gray-200 text-gray-600 mt-2 hidden">Cancel Edit</button>
-                </div>
-                <!-- List -->
-                <div class="card flex-1">
-                    <h2 class="font-bold mb-4">Active Plans</h2>
-                    <div id="planList" class="space-y-2"></div>
-                </div>
+            
+            <div class="mt-8 flex justify-center opacity-40 grayscale">
+                <img src="smedan.png" class="h-6 onerror-hide">
+                <div class="w-px h-6 bg-gray-400 mx-4"></div>
+                <img src="coat.png" class="h-6 onerror-hide">
             </div>
-        </div>
-
+        </main>
     </div>
 
-    <script>
-        const API = '/api';
-        
-        // STATE
-        let allProducts = [];
-        let allPlans = [];
-        let editingProdId = null;
-        let editingPlanId = null;
+    <!-- =========================
+       2. BUY DATA VIEW
+    ========================== -->
+    <div id="view-data" class="view hidden bg-white p-6 z-30">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-2xl font-bold">Buy Data</h2>
+            <button onclick="hideView('data')" class="p-2 bg-gray-100 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
 
-        // ICONS
+        <div class="space-y-5">
+            <!-- Network -->
+            <label class="text-xs font-bold text-gray-400 uppercase ml-1">Select Network</label>
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="setNet('MTN', 1, this)" class="net-btn w-full p-4 border-2 border-gray-100 rounded-2xl font-bold text-gray-600 flex items-center justify-center gap-2 hover:bg-yellow-50 hover:border-yellow-400 transition-all">
+                    <div class="w-3 h-3 rounded-full bg-yellow-400"></div> MTN
+                </button>
+                <button onclick="setNet('GLO', 2, this)" class="net-btn w-full p-4 border-2 border-gray-100 rounded-2xl font-bold text-gray-600 flex items-center justify-center gap-2 hover:bg-green-50 hover:border-green-500 transition-all">
+                    <div class="w-3 h-3 rounded-full bg-green-500"></div> GLO
+                </button>
+            </div>
+
+            <!-- Inputs -->
+            <div>
+                <select id="dataPlanSelect" class="inp appearance-none font-bold text-lg" onchange="updatePrice()">
+                    <option value="">Select Data Plan...</option>
+                </select>
+                <div class="pointer-events-none absolute right-10 mt-[-45px]"><i data-lucide="chevron-down" class="w-5 h-5 text-gray-400"></i></div>
+            </div>
+
+            <input type="tel" id="dataPhone" placeholder="Mobile Number (090...)" class="inp font-mono text-lg tracking-widest">
+            
+            <!-- Agent PIN -->
+            <div id="agentPinArea" class="hidden animate-fade-in">
+                <label class="text-xs font-bold text-purple-600 uppercase ml-1 mb-1 block">Agent Wallet PIN</label>
+                <input type="password" id="agentPinData" placeholder="Enter 4-digit PIN" class="inp border-purple-200 focus:border-purple-600">
+            </div>
+
+            <!-- Price -->
+            <div class="text-center py-2">
+                <p class="text-sm text-gray-400">Total Amount</p>
+                <h3 id="priceDisplay" class="text-3xl font-black text-gray-300">₦0.00</h3>
+            </div>
+
+            <button onclick="initDataPurchase()" class="btn-black btn-press shadow-xl">Proceed to Payment</button>
+        </div>
+    </div>
+
+    <!-- =========================
+       3. SHOP VIEW
+    ========================== -->
+    <div id="view-shop" class="view hidden bg-gray-50 p-6 z-30">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Devices</h2>
+            <button onclick="hideView('shop')" class="p-2 bg-white rounded-full shadow-sm"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div id="shopGrid" class="space-y-4 pb-20">
+            <!-- Products injected here -->
+            <div class="text-center mt-20 text-gray-400">Loading Inventory...</div>
+        </div>
+    </div>
+
+    <!-- =========================
+       4. PRODUCT DETAIL
+    ========================== -->
+    <div id="view-prod-detail" class="view hidden bg-white p-0 z-40">
+        <div class="relative bg-gray-100 h-80 flex items-center justify-center">
+            <button onclick="hideView('prod-detail')" class="absolute top-6 right-6 p-2 bg-white rounded-full shadow-md z-10"><i data-lucide="x" class="w-5 h-5"></i></button>
+            <img id="pdImg" class="w-3/4 h-3/4 object-contain mix-blend-multiply">
+        </div>
+        
+        <div class="p-8 -mt-6 bg-white rounded-t-[30px] relative flex-1 flex flex-col">
+            <h2 id="pdName" class="text-2xl font-bold mb-2"></h2>
+            <h3 id="pdPrice" class="text-2xl font-bold text-blue-600 mb-6"></h3>
+            
+            <div class="flex-1 overflow-y-auto mb-6">
+                <h4 class="font-bold text-sm text-gray-400 uppercase mb-2">Description</h4>
+                <p id="pdDesc" class="text-gray-600 leading-relaxed text-sm"></p>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-2xl mb-4 border border-gray-100">
+                <h4 class="font-bold text-xs text-gray-400 uppercase mb-2">Delivery Info</h4>
+                <input id="pdCustName" placeholder="Recipient Name" class="w-full bg-white p-3 rounded-xl border border-gray-200 text-sm mb-2 outline-none">
+                <input id="pdCustPhone" type="tel" placeholder="Contact Phone" class="w-full bg-white p-3 rounded-xl border border-gray-200 text-sm outline-none">
+            </div>
+            
+            <button onclick="buyProduct()" class="btn-black btn-press">Pay Now</button>
+        </div>
+    </div>
+
+    <!-- =========================
+       5. PAYMENT DISPLAY
+    ========================== -->
+    <div id="view-pay" class="view hidden bg-white p-8 items-center justify-center z-50">
+        <div class="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-6 animate-bounce">
+            <i data-lucide="arrow-down" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-2xl font-bold mb-2 text-center">Transfer Payment</h2>
+        <p class="text-center text-gray-500 text-sm mb-8 max-w-xs mx-auto">Please transfer the exact amount to the generated account below.</p>
+
+        <div class="w-full bg-gray-50 p-6 rounded-3xl border border-gray-100 text-center mb-6 shadow-sm">
+            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Bank Name</p>
+            <p id="payBank" class="text-lg font-bold mb-4">Loading...</p>
+            
+            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Account Number</p>
+            <div class="flex items-center justify-center gap-3 mb-4 bg-white p-2 rounded-xl border border-gray-100">
+                <span id="payAcc" class="text-2xl font-mono font-bold tracking-wider text-gray-800">...</span>
+                <button onclick="copyAcc()" class="text-gray-400 hover:text-black"><i data-lucide="copy" class="w-5 h-5"></i></button>
+            </div>
+            
+            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Amount Due</p>
+            <p id="payAmt" class="text-3xl font-black text-green-600">₦0.00</p>
+        </div>
+
+        <button onclick="checkPayStatus()" class="btn-black bg-green-600 mb-3 shadow-green-200">I Have Paid</button>
+        <button onclick="hideView('pay')" class="text-gray-400 text-sm p-4 w-full">Cancel Transaction</button>
+        
+        <p id="payStatusMsg" class="mt-2 text-xs font-bold text-center text-orange-500 h-6"></p>
+    </div>
+
+    <!-- =========================
+       6. AGENT AUTH
+    ========================== -->
+    <div id="view-agent-auth" class="view hidden bg-white p-6 z-40 justify-center">
+        <button onclick="hideView('agent-auth')" class="absolute top-6 right-6 p-2 bg-gray-100 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
+        
+        <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold">Agent Portal</h2>
+            <p class="text-gray-500 text-sm">Resell data and earn commissions.</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex p-1 bg-gray-100 rounded-2xl mb-8">
+            <button onclick="toggleAgTab('login')" id="tabLog" class="flex-1 py-3 rounded-xl bg-white shadow-sm font-bold text-sm transition-all">Login</button>
+            <button onclick="toggleAgTab('reg')" id="tabReg" class="flex-1 py-3 rounded-xl text-gray-400 font-bold text-sm transition-all">Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="agLogin" class="space-y-4">
+            <input type="tel" id="logPhone" placeholder="Phone Number" class="inp">
+            <input type="password" id="logPin" placeholder="4-Digit PIN" class="inp">
+            <button onclick="doAgentLogin()" class="btn-black">Login to Wallet</button>
+        </div>
+
+        <!-- Register Form -->
+        <div id="agReg" class="space-y-4 hidden">
+            <input id="regName" placeholder="Full Name" class="inp">
+            <input id="regPhone" type="tel" placeholder="Phone Number" class="inp">
+            <input id="regEmail" type="email" placeholder="Email Address" class="inp">
+            <input id="regPin" type="password" placeholder="Create 4-Digit PIN" class="inp">
+            <button onclick="doAgentReg()" class="btn-black bg-blue-600">Submit Application</button>
+        </div>
+    </div>
+
+    <!-- =========================
+       7. FUND WALLET
+    ========================== -->
+    <div id="view-fund" class="view hidden bg-white p-6 z-40 pt-20">
+        <button onclick="hideView('fund')" class="absolute top-6 right-6 p-2 bg-gray-100 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
+        
+        <h2 class="text-2xl font-bold mb-2">Fund Wallet</h2>
+        <p class="text-gray-500 text-sm mb-6">Transfer to your dedicated virtual account to top up instantly.</p>
+        
+        <div id="fundArea" class="bg-gray-50 p-8 rounded-3xl text-center border border-gray-100">
+            <div class="animate-pulse text-gray-400 font-bold">Generating Account...</div>
+        </div>
+    </div>
+
+    <!-- =========================
+       8. TRACK
+    ========================== -->
+    <div id="view-track" class="view hidden bg-white p-6 z-30">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-2xl font-bold">Track Order</h2>
+            <button onclick="hideView('track')" class="p-2 bg-gray-100 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        
+        <div class="flex gap-2 mb-8">
+            <input id="trackInp" type="tel" placeholder="Enter Phone Number" class="inp mb-0">
+            <button onclick="doTrack()" class="bg-black text-white px-6 rounded-2xl font-bold">Go</button>
+        </div>
+        
+        <div id="trackRes" class="space-y-3">
+            <p class="text-center text-gray-400 text-sm mt-10">Enter number to see history</p>
+        </div>
+    </div>
+
+    <!-- =========================
+       9. RECEIPT MODAL
+    ========================== -->
+    <div id="view-receipt" class="view hidden bg-black/95 p-6 z-50 flex flex-col justify-center items-center">
+        
+        <div id="receiptCard" class="bg-white w-full max-w-sm p-6 relative shadow-2xl">
+            <!-- Receipt Header -->
+            <div class="text-center border-b-2 border-dashed border-gray-200 pb-4 mb-4">
+                <h2 class="text-2xl font-black tracking-tighter">SAUKI MART</h2>
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Transaction Receipt</p>
+            </div>
+            
+            <!-- Details -->
+            <div class="space-y-3 font-mono text-sm text-gray-600">
+                <div class="flex justify-between"><span class="text-gray-400">Date</span><span id="rDate" class="text-black font-bold"></span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Ref</span><span id="rRef" class="text-[10px] break-all"></span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Item</span><span id="rItem" class="text-black font-bold"></span></div>
+                <div class="flex justify-between"><span class="text-gray-400">Recipient</span><span id="rPhone"></span></div>
+                
+                <div class="border-t-2 border-dashed border-gray-200 my-4 pt-4 flex justify-between items-center">
+                    <span class="font-bold text-gray-400">TOTAL</span>
+                    <span id="rAmt" class="text-2xl font-bold text-black"></span>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="mt-6 text-center">
+                <p class="text-[9px] text-gray-300">Govt Certified • SMEDAN</p>
+                <p class="text-[9px] text-gray-300">Thanks for your patronage!</p>
+            </div>
+        </div>
+
+        <button onclick="dlReceipt()" class="mt-8 bg-white text-black w-full max-w-sm py-4 rounded-xl font-bold btn-press">Save to Gallery</button>
+        <button onclick="location.reload()" class="mt-4 text-white/50 text-sm font-medium">Close</button>
+    </div>
+
+    <!-- LOGIC -->
+    <script>
         lucide.createIcons();
 
-        // LOGIN
-        async function login() {
-            const email = document.getElementById('admEmail').value;
-            const password = document.getElementById('admPass').value;
+        // STATE
+        let plans = [];
+        let agent = JSON.parse(localStorage.getItem('sauki_agent'));
+        let selectedNetId = null;
+        let selectedProd = null;
+        let currentTxRef = null;
+
+        // INIT
+        window.onload = async () => {
+            if(agent) initAgentUI();
             try {
-                const res = await fetch(`${API}/admin/login`, {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ email, password })
+                // Fetch Plans on load
+                const res = await fetch('/api/plans');
+                plans = await res.json();
+            } catch(e) { console.error("Plans Error"); }
+        }
+
+        // --- VIEW CONTROLLER ---
+        function showView(id) {
+            document.getElementById(`view-${id}`).classList.remove('hidden');
+            document.getElementById(`view-${id}`).classList.add('active');
+    if(id === 'shop') loadShop();
+        }
+        function hideView(id) {
+            document.getElementById(`view-${id}`).classList.add('hidden');
+            document.getElementById(`view-${id}`).classList.remove('active');
+        }
+
+        // --- DATA BUYING ---
+        function setNet(name, id, btn) {
+            selectedNetId = id;
+            document.querySelectorAll('.net-btn').forEach(b => {
+                b.classList.remove('bg-yellow-50', 'bg-green-50', 'border-yellow-400', 'border-green-500');
+                b.classList.add('border-gray-100');
+            });
+            
+            if(name === 'MTN') {
+                btn.classList.add('bg-yellow-50', 'border-yellow-400');
+                btn.classList.remove('border-gray-100');
+            } else {
+                btn.classList.add('bg-green-50', 'border-green-500');
+                btn.classList.remove('border-gray-100');
+            }
+
+            const sel = document.getElementById('dataPlanSelect');
+            sel.innerHTML = '<option value="">Select Data Plan...</option>';
+            
+            const filtered = plans.filter(p => p.network === name);
+            if(filtered.length === 0) {
+                const opt = document.createElement('option');
+                opt.text = "No plans available";
+                sel.add(opt);
+                return;
+            }
+
+            filtered.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.planId;
+                opt.text = `${p.name}`;
+                opt.dataset.price = p.price;
+                opt.dataset.name = p.name;
+                sel.add(opt);
+            });
+        }
+
+        function updatePrice() {
+            const sel = document.getElementById('dataPlanSelect');
+            const price = sel.options[sel.selectedIndex]?.dataset?.price;
+            const disp = document.getElementById('priceDisplay');
+            if(price) {
+                disp.innerText = `₦${parseInt(price).toLocaleString()}`;
+                disp.classList.remove('text-gray-300');
+                disp.classList.add('text-black');
+            } else {
+                disp.innerText = "₦0.00";
+                disp.classList.add('text-gray-300');
+            }
+        }
+
+        async function initDataPurchase() {
+            const phone = document.getElementById('dataPhone').value;
+            const sel = document.getElementById('dataPlanSelect');
+            const planId = sel.value;
+            
+            if(!planId || !phone) return alert("Please select network, plan, and enter phone number.");
+
+            const price = sel.options[sel.selectedIndex].dataset.price;
+            const planName = sel.options[sel.selectedIndex].dataset.name;
+
+            // AGENT FLOW
+            if(agent) {
+                const pin = document.getElementById('agentPinData').value;
+                if(!pin) return alert("Please enter your Agent PIN");
+                
+                if(confirm(`Confirm ₦${price} deduction?`)) {
+                    const res = await fetch('/api/agent/buy', {
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ agentId: agent.id, pin, amount: price, networkId: selectedNetId, planId, phone })
+                    });
+                    const d = await res.json();
+                    if(d.success) {
+                        agent.balance -= price;
+                        localStorage.setItem('sauki_agent', JSON.stringify(agent));
+                        initAgentUI();
+                        showReceipt({reference: d.txRef, amount: price, description: planName, customerPhone: phone});
+                        hideView('data');
+                    } else alert(d.error);
+                }
+                return;
+            }
+
+            // GUEST FLOW
+            startPayment({
+                amount: price,
+                phone: phone,
+                name: 'Guest Customer',
+                type: 'DATA_PURCHASE',
+                metadata: { networkId: selectedNetId, planId, planName, desc: planName }
+            });
+        }
+
+        // --- SHOP & PRODUCT ---
+        async function loadShop() {
+            const grid = document.getElementById('shopGrid');
+            try {
+                const res = await fetch('/api/products');
+                const prods = await res.json();
+                
+                if(prods.length === 0) {
+                    grid.innerHTML = '<p class="text-center text-gray-400 mt-10">No stock available</p>';
+                    return;
+                }
+                
+                window.products = prods;
+                grid.innerHTML = prods.map((p, i) => `
+                    <div onclick="openProd(${i})" class="bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm border border-gray-100 cursor-pointer btn-press">
+                        <img src="${p.image}" class="w-16 h-16 object-contain bg-white rounded-lg">
+                        <div>
+                            <h4 class="font-bold text-gray-900">${p.name}</h4>
+                            <p class="text-blue-600 font-bold">₦${p.price.toLocaleString()}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch(e) { grid.innerHTML = '<p class="text-center text-red-500 mt-10">Failed to load shop</p>'; }
+        }
+
+        function openProd(i) {
+            selectedProd = window.products[i];
+            document.getElementById('pdImg').src = selectedProd.image;
+            document.getElementById('pdName').innerText = selectedProd.name;
+            document.getElementById('pdPrice').innerText = `₦${selectedProd.price.toLocaleString()}`;
+            document.getElementById('pdDesc').innerText = selectedProd.description;
+            showView('prod-detail');
+        }
+
+        function buyProduct() {
+            const name = document.getElementById('pdCustName').value;
+            const phone = document.getElementById('pdCustPhone').value;
+            
+            if(!name || !phone) return alert("Please fill delivery details");
+
+            startPayment({
+                amount: selectedProd.price,
+                phone: phone,
+                name: name,
+                type: 'DEVICE_PURCHASE',
+                metadata: { desc: selectedProd.name }
+            });
+        }
+
+        // --- PAYMENT CORE ---
+        async function startPayment(payload) {
+            // Hide previous views to show payment
+            hideView('data');
+            hideView('prod-detail');
+            
+            // Temporary loading alert
+            // Ideally use a spinner, but alert is safe for blocking
+            
+            try {
+                const res = await fetch('/api/pay/charge', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
                 });
                 const d = await res.json();
-                if(d.success) {
-                    document.getElementById('loginOverlay').classList.add('hidden');
-                    document.getElementById('dashboard').classList.remove('hidden');
-                    loadAll();
-                } else alert('Invalid');
-            } catch(e) { alert('Error'); }
+                
+                if(d.status === 'success') {
+                    document.getElementById('payBank').innerText = d.bank_name;
+                    document.getElementById('payAcc').innerText = d.account_number;
+                    document.getElementById('payAmt').innerText = `₦${d.amount.toLocaleString()}`;
+                    currentTxRef = d.ref;
+                    showView('pay');
+                } else {
+                    alert("Payment Error: " + d.error);
+                }
+            } catch(e) { alert("Network Error"); }
         }
 
-        function tab(id, btn) {
-            document.querySelectorAll('.section').forEach(e => e.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+        async function checkPayStatus() {
+            const msg = document.getElementById('payStatusMsg');
+            msg.innerText = "Checking Bank Network...";
+            try {
+                const res = await fetch(`/api/transaction/check/${currentTxRef}`);
+                const d = await res.json();
+                if(d.status === 'SUCCESS') {
+                    hideView('pay');
+                    showReceipt(d.tx);
+                } else {
+                    msg.innerText = "Payment not yet confirmed. Please wait.";
+                }
+            } catch(e) { msg.innerText = "Connection Error"; }
         }
 
-        async function loadAll() {
-            // Stats & TX
-            const sRes = await fetch(`${API}/admin/stats`);
-            const stats = await sRes.json();
-            document.getElementById('rev').innerText = `₦${stats.revenue.toLocaleString()}`;
-            document.getElementById('pendAg').innerText = stats.pendingAgents;
-            document.getElementById('txBody').innerHTML = stats.recentTx.map(tx => `
-                <tr class="border-b">
-                    <td class="p-3 font-mono text-xs">${tx.reference}</td>
-                    <td class="p-3 text-xs font-bold">${tx.type}</td>
-                    <td class="p-3">₦${tx.amount}</td>
-                    <td class="p-3 text-xs font-bold ${tx.status==='SUCCESS'?'text-green-600':'text-orange-500'}">${tx.status}</td>
-                    <td class="p-3">
-                        ${tx.status === 'SUCCESS' && tx.type === 'DATA_PURCHASE' ? 
-                        `<button onclick="retry('${tx.id}')" class="bg-black text-white px-2 py-1 rounded text-xs">Retry</button>` : ''}
-                    </td>
-                </tr>
-            `).join('');
+        // --- AGENT SYSTEM ---
+        function checkAgentAuth() {
+            if(agent) {
+                if(confirm("Log out of Agent Wallet?")) {
+                    localStorage.removeItem('sauki_agent');
+                    location.reload();
+                }
+            } else {
+                showView('agent-auth');
+            }
+        }
 
-            // Agents
-            const aRes = await fetch(`${API}/admin/agents`);
-            const ags = await aRes.json();
-            document.getElementById('agBody').innerHTML = ags.map(a => `
-                <tr class="border-b">
-                    <td class="p-3 font-bold">${a.name}</td>
-                    <td class="p-3">${a.phone}</td>
-                    <td class="p-3 text-xs">${a.status}</td>
-                    <td class="p-3">
-                        ${a.status === 'PENDING' ? 
-                        `<button onclick="appr('${a.id}')" class="text-green-600 font-bold text-xs">Approve</button>` : 
-                        '<span class="text-gray-300">-</span>'}
-                    </td>
-                </tr>
-            `).join('');
+        function initAgentUI() {
+            document.getElementById('agentWalletDisplay').classList.remove('hidden');
+            document.getElementById('agBal').innerText = `₦${agent.balance.toLocaleString()}`;
+            document.getElementById('agentPinArea').classList.remove('hidden');
+            
+            // Check funding account
+            if(!agent.virtualAccountNumber) {
+                 fetch('/api/agent/create-account', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ agentId: agent.id })
+                }).then(r=>r.json()).then(d => {
+                    if(d.success) {
+                        agent = d.agent;
+                        localStorage.setItem('sauki_agent', JSON.stringify(agent));
+                    }
+                });
+            }
 
-            // Products
-            const pRes = await fetch(`${API}/products`);
-            allProducts = await pRes.json();
-            document.getElementById('prodList').innerHTML = allProducts.map(p => `
-                <div class="flex items-center gap-4 bg-gray-50 p-2 rounded">
-                    <img src="${p.image}" class="w-10 h-10 object-contain bg-white">
-                    <div class="flex-1">
-                        <p class="font-bold text-sm">${p.name}</p>
-                        <p class="text-xs text-gray-500">₦${p.price}</p>
+            // Set Fund View
+            const area = document.getElementById('fundArea');
+            if(agent.virtualAccountNumber) {
+                area.innerHTML = `
+                    <div class="bg-gray-50 p-6 rounded-2xl border border-gray-100 text-center">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Bank Name</p>
+                        <p class="text-lg font-bold mb-4">${agent.virtualAccountBank}</p>
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Account Number</p>
+                        <p class="text-3xl font-mono font-bold tracking-widest mb-4">${agent.virtualAccountNumber}</p>
+                        <p class="text-sm text-purple-600 bg-purple-50 py-2 rounded-lg font-bold">Transfer here to fund wallet instantly.</p>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="editProd('${p.id}')" class="text-blue-600 text-xs font-bold"><i data-lucide="pencil" class="w-4 h-4"></i></button>
-                        <button onclick="delProd('${p.id}')" class="text-red-500 text-xs font-bold"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    </div>
-                </div>
-            `).join('');
-            lucide.createIcons();
-
-            // Plans
-            const plRes = await fetch(`${API}/plans`);
-            allPlans = await plRes.json();
-            document.getElementById('planList').innerHTML = allPlans.map(p => `
-                <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
-                    <div>
-                        <span class="font-bold text-xs bg-black text-white px-1 rounded mr-2">${p.network}</span>
-                        <span class="text-sm font-medium">${p.name}</span>
-                        <span class="text-xs text-gray-500 block">ID: ${p.planId} | Price: ₦${p.price}</span>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="editPlan('${p.id}')" class="text-blue-600 text-xs font-bold"><i data-lucide="pencil" class="w-4 h-4"></i></button>
-                        <button onclick="delPlan('${p.id}')" class="text-red-500 text-xs font-bold"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    </div>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        }
-
-        // IMAGE HANDLER
-        document.getElementById('pImageFile').addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('pImageBase64').value = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // --- PRODUCT ACTIONS ---
-        async function saveProd() {
-            const body = {
-                name: document.getElementById('pName').value,
-                price: document.getElementById('pPrice').value,
-                description: document.getElementById('pDesc').value,
-                image: document.getElementById('pImageBase64').value
-            };
-            
-            let url = `${API}/admin/product/add`;
-            if (editingProdId) {
-                url = `${API}/admin/product/update`;
-                body.id = editingProdId;
-            } else if(!body.image) {
-                 return alert('Image required for new products');
-            }
-
-            await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-            resetProdForm();
-            loadAll();
-            alert(editingProdId ? 'Product Updated' : 'Product Added');
-        }
-
-        function editProd(id) {
-            const p = allProducts.find(x => x.id === id);
-            if (!p) return;
-            editingProdId = id;
-            document.getElementById('pName').value = p.name;
-            document.getElementById('pPrice').value = p.price;
-            document.getElementById('pDesc').value = p.description;
-            document.getElementById('pImageBase64').value = ""; // Don't preload base64, server handles keep-old
-            
-            // UI Update
-            document.getElementById('prodFormTitle').innerText = "Edit Product";
-            document.getElementById('prodBtn').innerText = "Update Product";
-            document.getElementById('prodCancelBtn').classList.remove('hidden');
-            document.getElementById('prodFormCard').classList.add('edit-mode');
-        }
-
-        function resetProdForm() {
-            editingProdId = null;
-            document.getElementById('pName').value = "";
-            document.getElementById('pPrice').value = "";
-            document.getElementById('pDesc').value = "";
-            document.getElementById('pImageFile').value = "";
-            document.getElementById('pImageBase64').value = "";
-            
-            document.getElementById('prodFormTitle').innerText = "Add Device";
-            document.getElementById('prodBtn').innerText = "Save Product";
-            document.getElementById('prodCancelBtn').classList.add('hidden');
-            document.getElementById('prodFormCard').classList.remove('edit-mode');
-        }
-
-        async function delProd(id) {
-            if(confirm('Delete?')) {
-                await fetch(`${API}/admin/product/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
-                loadAll();
+                `;
             }
         }
 
-        // --- PLAN ACTIONS ---
-        async function savePlan() {
-            const body = {
-                network: document.getElementById('plNet').value,
-                networkId: document.getElementById('plNetId').value,
-                planId: document.getElementById('plAmigoId').value,
-                name: document.getElementById('plName').value,
-                price: document.getElementById('plPrice').value
-            };
+        function toggleAgTab(t) {
+            const l = document.getElementById('agLogin');
+            const r = document.getElementById('agReg');
+            const btL = document.getElementById('tabLog');
+            const btR = document.getElementById('tabReg');
             
-            let url = `${API}/admin/plans/add`;
-            if (editingPlanId) {
-                url = `${API}/admin/plans/update`;
-                body.id = editingPlanId;
-            }
-
-            await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-            resetPlanForm();
-            loadAll();
-            alert(editingPlanId ? 'Plan Updated' : 'Plan Added');
-        }
-
-        function editPlan(id) {
-            const p = allPlans.find(x => x.id === id);
-            if(!p) return;
-            editingPlanId = id;
-            document.getElementById('plNet').value = p.network;
-            document.getElementById('plNetId').value = p.networkId;
-            document.getElementById('plAmigoId').value = p.planId;
-            document.getElementById('plName').value = p.name;
-            document.getElementById('plPrice').value = p.price;
-            
-            document.getElementById('planFormTitle').innerText = "Edit Data Plan";
-            document.getElementById('planBtn').innerText = "Update Plan";
-            document.getElementById('planCancelBtn').classList.remove('hidden');
-            document.getElementById('planFormCard').classList.add('edit-mode');
-        }
-
-        function resetPlanForm() {
-            editingPlanId = null;
-            document.getElementById('plNet').value = "MTN";
-            document.getElementById('plNetId').value = "";
-            document.getElementById('plAmigoId').value = "";
-            document.getElementById('plName').value = "";
-            document.getElementById('plPrice').value = "";
-            
-            document.getElementById('planFormTitle').innerText = "Add Data Plan";
-            document.getElementById('planBtn').innerText = "Save Plan";
-            document.getElementById('planCancelBtn').classList.add('hidden');
-            document.getElementById('planFormCard').classList.remove('edit-mode');
-        }
-
-        async function delPlan(id) {
-            if(confirm('Delete Plan?')) {
-                await fetch(`${API}/admin/plans/delete`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
-                loadAll();
+            if(t === 'login') {
+                l.classList.remove('hidden'); r.classList.add('hidden');
+                btL.classList.add('bg-white', 'shadow-sm', 'text-black'); btL.classList.remove('text-gray-400');
+                btR.classList.remove('bg-white', 'shadow-sm', 'text-black'); btR.classList.add('text-gray-400');
+            } else {
+                l.classList.add('hidden'); r.classList.remove('hidden');
+                btR.classList.add('bg-white', 'shadow-sm', 'text-black'); btR.classList.remove('text-gray-400');
+                btL.classList.remove('bg-white', 'shadow-sm', 'text-black'); btL.classList.add('text-gray-400');
             }
         }
 
-        async function retry(id) {
-            const res = await fetch(`${API}/admin/retry`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({txId: id})});
+        async function doAgentLogin() {
+            const phone = document.getElementById('logPhone').value;
+            const pin = document.getElementById('logPin').value;
+            const res = await fetch('/api/agent/login', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ phone, pin })
+            });
             const d = await res.json();
-            alert(d.success ? 'Retried' : 'Failed');
+            if(d.success) {
+                agent = d.agent;
+                localStorage.setItem('sauki_agent', JSON.stringify(agent));
+                initAgentUI();
+                hideView('agent-auth');
+            } else alert(d.error);
         }
 
-        async function appr(id) {
-            await fetch(`${API}/admin/agent/approve`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({agentId: id, action: 'ACTIVE'})});
-            loadAll();
+        async function doAgentReg() {
+             const body = {
+                name: document.getElementById('regName').value,
+                phone: document.getElementById('regPhone').value,
+                email: document.getElementById('regEmail').value,
+                pin: document.getElementById('regPin').value
+             };
+             const res = await fetch('/api/agent/register', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(body)
+            });
+            const d = await res.json();
+            if(d.success) { alert("Registration Sent!"); hideView('agent-auth'); }
+            else alert(d.error);
+        }
+
+        // --- TRACKING ---
+        async function doTrack() {
+            const ph = document.getElementById('trackInp').value;
+            if(!ph) return alert("Enter Phone");
+            const res = await fetch(`/api/track/${ph}`);
+            const txs = await res.json();
+            
+            document.getElementById('trackRes').innerHTML = txs.map(tx => `
+                <div class="bg-gray-50 p-4 rounded-2xl flex justify-between items-center border border-gray-100 mb-2">
+                    <div>
+                        <p class="font-bold text-sm text-gray-800">${tx.description || tx.type}</p>
+                        <p class="text-[10px] text-gray-400 uppercase font-bold">${new Date(tx.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="text-xs px-2 py-1 rounded-full font-bold ${tx.status==='SUCCESS'?'bg-green-100 text-green-700':'bg-orange-100 text-orange-600'}">${tx.status}</span>
+                        ${tx.status !== 'SUCCESS' ? `<button onclick="reCheck('${tx.reference}')" class="text-[10px] underline">Re-Check</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function reCheck(ref) {
+            alert("Checking status...");
+            await fetch(`/api/transaction/check/${ref}`);
+            doTrack();
+        }
+
+        // --- RECEIPT ---
+        function showReceipt(tx) {
+            showView('receipt');
+            document.getElementById('rDate').innerText = new Date().toLocaleDateString();
+            document.getElementById('rRef').innerText = tx.reference;
+            document.getElementById('rItem').innerText = tx.description || 'Data Purchase';
+            document.getElementById('rPhone').innerText = tx.customerPhone;
+            document.getElementById('rAmt').innerText = `₦${tx.amount.toLocaleString()}`;
+        }
+
+        function dlReceipt() {
+            html2canvas(document.getElementById('receiptCard')).then(canvas => {
+                const a = document.createElement('a');
+                a.href = canvas.toDataURL("image/png");
+                a.download = `Receipt-${Date.now()}.png`;
+                a.click();
+            });
+        }
+
+        function copyAcc() {
+            const t = document.getElementById('payAcc').innerText;
+            navigator.clipboard.writeText(t);
+            alert("Copied Account Number");
         }
     </script>
 </body>
 </html>
-
-
