@@ -110,23 +110,64 @@ app.get('/api/transaction/check/:ref', async (req, res) => {
     res.json({ status: tx.status, tx });
 });
 
+// ==========================================
+// THE CRITICAL WEBHOOK (HANDLES INSTANT WALLET FUNDING)
+// ==========================================
 app.post('/api/webhook', async (req, res) => {
     const secretHash = process.env.FLW_HASH;
     const signature = req.headers["verif-hash"];
     if (!signature || signature !== secretHash) return res.status(401).end();
 
     const { data } = req.body;
-    if (data.status === "successful") {
-        const tx = await prisma.transaction.findUnique({ where: { reference: data.tx_ref } });
-        if (tx && tx.status !== 'SUCCESS') {
-            await prisma.transaction.update({ where: { reference: data.tx_ref }, data: { status: 'SUCCESS' } });
+    
+    if (data.status === "successful" || data.status === "succeeded") {
+        const txRef = data.tx_ref;
+
+        // 1. HANDLE AGENT WALLET FUNDING (Static Accounts)
+        // Static accounts always have ref like "AGENT-{uuid}"
+        if (txRef && txRef.startsWith('AGENT-')) {
+            // We use the FLW transaction ID as our unique reference to prevent double crediting
+            const fundingRef = `FUND-${data.id}`;
             
-            if (tx.type === 'WALLET_FUNDING' && tx.agentId) {
-                await prisma.agent.update({ where: { id: tx.agentId }, data: { balance: { increment: tx.amount } } });
+            const exists = await prisma.transaction.findUnique({ where: { reference: fundingRef } });
+            
+            if (!exists) {
+                const agentId = txRef.replace('AGENT-', '');
+                const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+                
+                if (agent) {
+                    // Credit Wallet
+                    await prisma.agent.update({
+                        where: { id: agentId },
+                        data: { balance: { increment: data.amount } }
+                    });
+
+                    // Record Transaction
+                    await prisma.transaction.create({
+                        data: {
+                            reference: fundingRef,
+                            type: 'WALLET_FUNDING',
+                            status: 'SUCCESS',
+                            amount: data.amount,
+                            customerPhone: agent.phone,
+                            customerName: agent.name,
+                            description: 'Wallet Funding via Transfer',
+                            agentId: agent.id
+                        }
+                    });
+                }
             }
-            else if (tx.type === 'DATA_PURCHASE') {
-                const del = await deliverData(tx.customerPhone, tx.network, tx.planName);
-                await prisma.transaction.update({ where: { reference: data.tx_ref }, data: { amigoResponse: JSON.stringify(del) } });
+        } 
+        // 2. HANDLE REGULAR TRANSACTIONS (Data/Device purchase)
+        else {
+            const tx = await prisma.transaction.findUnique({ where: { reference: txRef } });
+            if (tx && tx.status !== 'SUCCESS') {
+                await prisma.transaction.update({ where: { reference: txRef }, data: { status: 'SUCCESS' } });
+                
+                if (tx.type === 'DATA_PURCHASE') {
+                    const del = await deliverData(tx.customerPhone, tx.network, tx.planName);
+                    await prisma.transaction.update({ where: { reference: txRef }, data: { amigoResponse: JSON.stringify(del) } });
+                }
             }
         }
     }
@@ -156,18 +197,23 @@ app.post('/api/agent/create-account', async (req, res) => {
     const agent = await prisma.agent.findUnique({ where: { id: agentId } });
     if (agent.virtualAccountNumber) return res.json({ success: true, agent });
     
+    // REQUIRE BVN
+    if (!process.env.MY_BVN) return res.status(500).json({ error: 'Server Config Error: BVN missing' });
+
     try {
         const payload = {
             email: agent.email || `agent${agent.phone}@sauki.com`,
             is_permanent: true,
-            bvn: process.env.MY_BVN,
+            bvn: process.env.MY_BVN, // USES THE ENV VARIABLE
             tx_ref: `AGENT-${agent.id}`,
             phonenumber: agent.phone,
             firstname: agent.name,
             lastname: "Agent",
-            narration: `Sauki Agent Funding`
+            narration: `Sauki Wallet Topup`
         };
+        
         const response = await flw.VirtualAccount.create(payload);
+        
         if (response.status === 'success') {
             const updated = await prisma.agent.update({
                 where: { id: agentId },
@@ -179,7 +225,10 @@ app.post('/api/agent/create-account', async (req, res) => {
             });
             res.json({ success: true, agent: updated });
         } else { res.status(400).json({ error: 'Could not create static account' }); }
-    } catch (e) { res.status(500).json({ error: 'Provider Error' }); }
+    } catch (e) { 
+        console.error("FLW Account Error:", e.response?.data || e.message);
+        res.status(500).json({ error: 'Provider Error' }); 
+    }
 });
 
 app.post('/api/agent/buy', async (req, res) => {
@@ -247,7 +296,7 @@ app.post('/api/admin/retry', async (req, res) => {
     res.status(400).json({ error: 'Cannot retry' });
 });
 
-// -- PRODUCTS (ADD/EDIT/DELETE) --
+// -- PRODUCTS --
 app.post('/api/admin/product/add', async (req, res) => {
     const { name, price, description, image } = req.body;
     await prisma.product.create({ data: { name, price: parseFloat(price), description, image } });
@@ -257,7 +306,7 @@ app.post('/api/admin/product/add', async (req, res) => {
 app.post('/api/admin/product/update', async (req, res) => {
     const { id, name, price, description, image } = req.body;
     const data = { name, price: parseFloat(price), description };
-    if (image) data.image = image; // Only update image if new one provided
+    if (image) data.image = image; 
     await prisma.product.update({ where: { id }, data });
     res.json({ success: true });
 });
@@ -267,7 +316,7 @@ app.post('/api/admin/product/delete', async (req, res) => {
     res.json({ success: true });
 });
 
-// -- PLANS (ADD/EDIT/DELETE) --
+// -- PLANS --
 app.post('/api/admin/plans/add', async (req, res) => {
     const { network, networkId, planId, name, price } = req.body;
     await prisma.dataPlan.create({
