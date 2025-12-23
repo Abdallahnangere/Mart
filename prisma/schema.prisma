@@ -11,31 +11,49 @@ model Product {
   id          String   @id @default(uuid())
   name        String
   price       Float
-  image       String   @default("https://placehold.co/400")
+  image       String
   description String
   inStock     Boolean  @default(true)
+}
+
+model DataPlan {
+  id        String @id @default(uuid())
+  network   String
+  networkId Int
+  planId    Int
+  name      String
+  price     Float
 }
 
 model Agent {
   id        String   @id @default(uuid())
   name      String
   phone     String   @unique
+  email     String?
   pin       String
   balance   Float    @default(0.0)
-  status    String   @default("PENDING") // PENDING, ACTIVE
+  status    String   @default("PENDING")
+  
+  // Static Funding Account
+  virtualAccountBank    String?
+  virtualAccountNumber  String?
+  virtualAccountName    String?
+  
   createdAt DateTime @default(now())
 }
 
 model Transaction {
   id            String   @id @default(uuid())
   reference     String   @unique
-  type          String   // DATA, DEVICE, FUNDING
-  status        String   // PENDING, SUCCESS, FAILED
+  type          String   
+  status        String   
   amount        Float
   customerPhone String
   customerName  String?
   description   String?
   network       String?
   planName      String?
+  agentId       String?
+  amigoResponse String?  // Stores API response for debugging
   createdAt     DateTime @default(now())
 }
