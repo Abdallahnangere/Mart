@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  price       Float
+  image       String   @default("https://placehold.co/400")
+  description String
+  inStock     Boolean  @default(true)
+}
+
+model Agent {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  pin       String
+  balance   Float    @default(0.0)
+  status    String   @default("PENDING") // PENDING, ACTIVE
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  reference     String   @unique
+  type          String   // DATA, DEVICE, FUNDING
+  status        String   // PENDING, SUCCESS, FAILED
+  amount        Float
+  customerPhone String
+  customerName  String?
+  description   String?
+  network       String?
+  planName      String?
+  createdAt     DateTime @default(now())
+}
