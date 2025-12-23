@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sauki Mart</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* iOS-like Smoothness */
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f2f2f7; /* iOS System Gray */
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden; /* No scroll on main body */
+        }
+
+        /* Smooth Bottom Sheet Modal */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4); 
+            backdrop-filter: blur(4px); z-index: 50;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-sheet {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: white;
+            border-top-left-radius: 24px; border-top-right-radius: 24px;
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            max-height: 92vh; display: flex; flex-col;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.1);
+        }
+        .modal-overlay.active .modal-sheet { transform: translateY(0); }
+
+        /* Custom Scrollbar for inside modals */
+        .scroll-y { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .scroll-y::-webkit-scrollbar { width: 0px; }
+
+        /* Interactive Cards */
+        .action-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .action-card:active { transform: scale(0.96); }
+
+        /* Toast Notification */
+        #toast {
+            position: fixed; top: -100px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            padding: 12px 24px; rounded-full;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            z-index: 100; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; align-items: center; gap: 10px; font-weight: 500; font-size: 14px;
+            border: 1px solid rgba(0,0,0,0.05); min-width: 300px; justify-content: center;
+            border-radius: 99px;
+        }
+        #toast.active { top: 20px; }
+        
+        .network-opt { border: 2px solid transparent; transition: all 0.2s; }
+        .network-opt.selected { border-color: #000; background-color: #f9fafb; }
+    </style>
+</head>
+<body class="h-screen flex flex-col relative">
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast"><i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i> <span id="toastMsg">Notification</span></div>
+
+    <!-- MAIN CONTENT -->
+    <div class="flex-1 flex flex-col p-6 max-w-md mx-auto w-full h-full">
+        
+        <!-- HEADER -->
+        <div class="flex flex-col items-center pt-8 pb-6 animate-fade-in">
+            <div class="w-20 h-20 bg-white rounded-2xl shadow-sm mb-4 p-2 flex items-center justify-center">
+                <img src="logo.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3588/3588726.png'" class="w-full h-full object-contain">
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-gray-900">SAUKI MART</h1>
+            <p class="text-[13px] text-gray-500 text-center mt-2 leading-tight max-w-[280px]">
+                Premium Data & Devices. Delivered Instantly. <br>
+                <span class="text-emerald-600 font-semibold text-[11px] uppercase tracking-wide">Govt. Certified by SMEDAN</span>
+            </p>
+        </div>
+
+        <!-- ACTION GRID -->
+        <div class="grid grid-cols-2 gap-4 flex-1 content-start">
+            <!-- 1. Shop -->
+            <button onclick="openModal('shopModal')" class="action-card bg-white p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-3 h-40 border border-gray-100">
+                <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+                    <i data-lucide="smartphone" class="w-6 h-6"></i>
+                </div>
+                <span class="font-semibold text-gray-800 text-sm">Shop Devices</span>
+            </button>
+
+            <!-- 2. Buy Data -->
+            <button onclick="openModal('dataModal')" class="action-card bg-gray-900 p-6 rounded-3xl shadow-lg shadow-gray-200 flex flex-col items-center justify-center gap-3 h-40">
+                <div class="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center text-white">
+                    <i data-lucide="wifi" class="w-6 h-6"></i>
+                </div>
+                <span class="font-semibold text-white text-sm">Buy Data</span>
+            </button>
+
+            <!-- 3. Agent -->
+            <button onclick="openModal('agentModal')" class="action-card bg-white p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-3 h-40 border border-gray-100">
+                <div class="w-12 h-12 bg-purple-50 rounded-full flex items-center justify-center text-purple-600">
+                    <i data-lucide="users" class="w-6 h-6"></i>
+                </div>
+                <span class="font-semibold text-gray-800 text-sm">Agent</span>
+            </button>
+
+            <!-- 4. Track -->
+            <button onclick="openModal('trackModal')" class="action-card bg-white p-6 rounded-3xl shadow-sm flex flex-col items-center justify-center gap-3 h-40 border border-gray-100">
+                <div class="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
+                    <i data-lucide="search" class="w-6 h-6"></i>
+                </div>
+                <span class="font-semibold text-gray-800 text-sm">Track TX</span>
+            </button>
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="mt-auto pt-6 text-center space-y-4">
+            <!-- Badges -->
+            <div class="flex justify-center items-center gap-4 opacity-70 grayscale hover:grayscale-0 transition-all">
+                <img src="coat.png" class="h-8 onerror-hide" alt="Nigeria">
+                <div class="h-6 w-px bg-gray-300"></div>
+                <img src="smedan.png" class="h-8 onerror-hide" alt="SMEDAN">
+            </div>
+            
+            <!-- Links -->
+            <div class="bg-white/50 backdrop-blur-sm rounded-2xl p-4 border border-white/50 shadow-sm mx-2">
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mb-2">Support Center</p>
+                <div class="flex justify-center gap-3 text-sm text-gray-600 font-medium">
+                    <a href="https://wa.me/2348164135836" class="flex items-center gap-1 hover:text-green-600"><i data-lucide="message-circle" class="w-4 h-4"></i> 816-413-5836</a>
+                    <span class="text-gray-300">•</span>
+                    <a href="mailto:saukidatalinks@gmail.com" class="hover:text-blue-600">Email Us</a>
+                </div>
+                <div class="text-[10px] text-gray-400 mt-2">
+                    08061934056 • 09031912835
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- === MODALS === -->
+
+    <!-- 1. SHOP MODAL -->
+    <div id="shopModal" class="modal-overlay">
+        <div class="modal-sheet flex flex-col h-[85vh]">
+            <div class="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10 rounded-t-3xl">
+                <h2 class="text-lg font-bold">Devices</h2>
+                <button onclick="closeModal('shopModal')" class="bg-gray-100 p-2 rounded-full hover:bg-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="flex-1 p-4 scroll-y grid grid-cols-1 gap-4" id="shopGrid">
+                <!-- Items injected here -->
+                <div class="animate-pulse bg-gray-100 h-24 rounded-2xl"></div>
+                <div class="animate-pulse bg-gray-100 h-24 rounded-2xl"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. DATA MODAL -->
+    <div id="dataModal" class="modal-overlay">
+        <div class="modal-sheet flex flex-col h-auto pb-8">
+            <div class="p-4 flex justify-between items-center border-b">
+                <h2 class="text-lg font-bold">Buy Data</h2>
+                <button onclick="closeModal('dataModal')" class="bg-gray-100 p-2 rounded-full hover:bg-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Network Grid -->
+                <div>
+                    <label class="text-xs font-semibold text-gray-400 uppercase ml-1">Select Network</label>
+                    <div class="grid grid-cols-2 gap-3 mt-2">
+                        <div onclick="selectNetwork(1, this)" class="network-opt cursor-pointer p-4 rounded-2xl border bg-white flex flex-col items-center gap-2 shadow-sm">
+                            <span class="font-bold text-yellow-500">MTN</span>
+                            <span class="text-[10px] text-gray-400">Fast & Reliable</span>
+                        </div>
+                        <div onclick="selectNetwork(2, this)" class="network-opt cursor-pointer p-4 rounded-2xl border bg-white flex flex-col items-center gap-2 shadow-sm">
+                            <span class="font-bold text-green-600">GLO</span>
+                            <span class="text-[10px] text-gray-400">Grand Masters</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <div class="space-y-4">
+                    <input type="tel" id="dataPhone" placeholder="Phone Number (e.g. 090...)" class="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-lg outline-none focus:bg-white focus:border-black transition-colors">
+                    
+                    <select id="dataPlan" class="w-full bg-gray-50 border border-gray-200 p-4 rounded-2xl text-lg outline-none appearance-none">
+                        <option value="">Select Plan</option>
+                        <!-- Options injected via JS -->
+                    </select>
+                </div>
+
+                <button onclick="initPayment('DATA')" class="w-full bg-black text-white p-4 rounded-2xl font-semibold text-lg shadow-xl active:scale-95 transition-transform">Proceed to Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. AGENT MODAL -->
+    <div id="agentModal" class="modal-overlay">
+        <div class="modal-sheet flex flex-col h-auto pb-8">
+            <div class="p-4 flex justify-between items-center border-b">
+                <h2 class="text-lg font-bold">Agent Portal</h2>
+                <button onclick="closeModal('agentModal')" class="bg-gray-100 p-2 rounded-full hover:bg-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="flex p-4 gap-2">
+                <button onclick="switchAgentTab('login')" id="tabLogin" class="flex-1 p-2 rounded-xl text-sm font-semibold bg-gray-900 text-white transition-colors">Login</button>
+                <button onclick="switchAgentTab('register')" id="tabReg" class="flex-1 p-2 rounded-xl text-sm font-semibold bg-gray-100 text-gray-500 transition-colors">Register</button>
+            </div>
+
+            <div class="p-6 pt-2">
+                <!-- Login Form -->
+                <div id="agentLogin" class="space-y-4">
+                    <input type="tel" id="agentPhone" placeholder="Phone Number" class="w-full bg-gray-50 border p-4 rounded-2xl">
+                    <input type="password" id="agentPin" placeholder="4-Digit PIN" class="w-full bg-gray-50 border p-4 rounded-2xl">
+                    <button onclick="agentAction('login')" class="w-full bg-blue-600 text-white p-4 rounded-2xl font-semibold">Access Dashboard</button>
+                </div>
+
+                <!-- Register Form (Hidden) -->
+                <div id="agentRegister" class="space-y-4 hidden">
+                    <input type="text" id="regName" placeholder="Full Name" class="w-full bg-gray-50 border p-4 rounded-2xl">
+                    <input type="tel" id="regPhone" placeholder="Phone Number" class="w-full bg-gray-50 border p-4 rounded-2xl">
+                    <input type="password" id="regPin" placeholder="Create 4-Digit PIN" class="w-full bg-gray-50 border p-4 rounded-2xl">
+                    <button onclick="agentAction('register')" class="w-full bg-green-600 text-white p-4 rounded-2xl font-semibold">Submit Application</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. TRACK MODAL -->
+    <div id="trackModal" class="modal-overlay">
+        <div class="modal-sheet flex flex-col h-[70vh]">
+            <div class="p-4 flex justify-between items-center border-b">
+                <h2 class="text-lg font-bold">Track Transactions</h2>
+                <button onclick="closeModal('trackModal')" class="bg-gray-100 p-2 rounded-full hover:bg-gray-200"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-4 space-y-4">
+                <div class="flex gap-2">
+                    <input type="tel" id="trackPhone" placeholder="Enter Phone Number" class="flex-1 bg-gray-50 border p-3 rounded-2xl outline-none">
+                    <button onclick="fetchHistory()" class="bg-black text-white px-6 rounded-2xl font-medium">Search</button>
+                </div>
+                <div id="historyList" class="space-y-3 mt-4 overflow-y-auto max-h-[50vh]">
+                    <p class="text-center text-gray-400 text-sm mt-10">Enter number to see history</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. PAYMENT DISPLAY MODAL (The Result) -->
+    <div id="payModal" class="modal-overlay">
+        <div class="modal-sheet flex flex-col h-auto pb-8 bg-gray-50">
+            <div class="p-6 text-center">
+                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 animate-bounce">
+                    <i data-lucide="arrow-down-circle" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-1">Make Transfer</h3>
+                <p class="text-sm text-gray-500 mb-6">Transfer exact amount to the account below.</p>
+
+                <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm mb-6">
+                    <p class="text-xs text-gray-400 uppercase">Bank Name</p>
+                    <p class="text-lg font-medium mb-3" id="payBankName">Wema Bank</p>
+                    
+                    <p class="text-xs text-gray-400 uppercase">Account Number</p>
+                    <div class="flex items-center justify-center gap-2 mb-3">
+                        <span class="text-3xl font-mono font-bold tracking-wider" id="payAccNum">0000000000</span>
+                        <button onclick="copyText('payAccNum')" class="text-gray-400"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                    </div>
+
+                    <p class="text-xs text-gray-400 uppercase">Amount</p>
+                    <p class="text-2xl font-bold text-green-600" id="payAmt">₦0.00</p>
+                    
+                    <div class="mt-4 pt-4 border-t border-dashed">
+                        <p class="text-[10px] text-gray-400">Account Name</p>
+                        <p class="text-xs font-semibold">Abdullahi Adam Usman FLW</p>
+                    </div>
+                </div>
+
+                <button onclick="verifyPayment()" class="w-full bg-green-600 text-white p-4 rounded-2xl font-bold shadow-lg shadow-green-200">I Have Paid</button>
+                <button onclick="closeModal('payModal')" class="mt-4 text-gray-400 text-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Init Icons
+        lucide.createIcons();
+
+        // Constants
+        let selectedNetwork = null;
+        let currentRef = null;
+        
+        // Data Plans (Hardcoded fallback + API structure)
+        const plans = {
+            1: [ // MTN
+                { id: 1001, name: "1GB SME - 30 Days", price: 290 },
+                { id: 6666, name: "2GB SME - 30 Days", price: 580 },
+                { id: 9999, name: "5GB SME - 30 Days", price: 1450 }
+            ],
+            2: [ // GLO
+                { id: 206, name: "1GB - 30 Days", price: 300 },
+                { id: 222, name: "5GB - 30 Days", price: 1500 }
+            ]
+        };
+
+        // --- UI FUNCTIONS ---
+        function showToast(msg, type = 'success') {
+            const t = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            t.classList.add('active');
+            setTimeout(() => t.classList.remove('active'), 3000);
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+            if(id === 'shopModal') loadProducts(); // Lazy load shop
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function copyText(id) {
+            const txt = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(txt);
+            showToast('Copied to clipboard');
+        }
+
+        // --- DATA BUYING FLOW ---
+        function selectNetwork(netId, el) {
+            selectedNetwork = netId;
+            document.querySelectorAll('.network-opt').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+
+            // Populate Dropdown
+            const select = document.getElementById('dataPlan');
+            select.innerHTML = '<option value="">Select Plan</option>';
+            if(plans[netId]) {
+                plans[netId].forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.dataset.price = p.price;
+                    opt.dataset.name = p.name;
+                    opt.text = `${p.name} - ₦${p.price}`;
+                    select.appendChild(opt);
+                });
+            }
+        }
+
+        async function initPayment(type) {
+            let payload = {};
+            const userPhone = document.getElementById('dataPhone').value;
+
+            if (type === 'DATA') {
+                const planSelect = document.getElementById('dataPlan');
+                if(!selectedNetwork || !userPhone || !planSelect.value) return showToast('Please fill all fields');
+                
+                const option = planSelect.options[planSelect.selectedIndex];
+                payload = {
+                    amount: option.dataset.price,
+                    phone: userPhone,
+                    name: 'Sauki Customer', // Can add name field later
+                    email: 'customer@sauki.com',
+                    type: 'DATA_PURCHASE',
+                    metadata: {
+                        networkId: selectedNetwork,
+                        planId: option.value,
+                        planName: option.dataset.name,
+                        desc: `Data: ${option.dataset.name}`
+                    }
+                };
+            }
+
+            // Close current modal, show loading toast
+            closeModal('dataModal');
+            showToast('Generating Account...', 'info');
+
+            try {
+                const res =await fetch('/api/pay/charge', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if(data.status === 'success') {
+                    // Fill Pay Modal
+                    document.getElementById('payBankName').innerText = data.bank_name;
+                    document.getElementById('payAccNum').innerText = data.account_number;
+                    document.getElementById('payAmt').innerText = `₦${data.amount}`;
+                    currentRef = data.ref;
+                    openModal('payModal');
+                } else {
+                    showToast('Payment Init Failed');
+                }
+            } catch(e) {
+                console.error(e);
+                showToast('Network Error');
+            }
+        }
+
+        async function verifyPayment() {
+            if(!currentRef) return;
+            showToast('Verifying payment...');
+            
+            try {
+                const res = await fetch(`/api/transaction/check/${currentRef}`);
+                const data = await res.json();
+                
+                if(data.status === 'SUCCESS') {
+                    closeModal('payModal');
+                    showToast('Payment Successful! Data Sent.');
+                    // Here we could open a receipt modal
+                } else if (data.status === 'PENDING') {
+                    showToast('Payment not yet received. Please wait.');
+                } else {
+                    showToast('Transaction Failed');
+                }
+            } catch(e) {
+                showToast('Verification Error');
+            }
+        }
+
+        // --- AGENT ---
+        function switchAgentTab(tab) {
+            if(tab === 'login') {
+                document.getElementById('agentLogin').classList.remove('hidden');
+                document.getElementById('agentRegister').classList.add('hidden');
+                document.getElementById('tabLogin').classList.replace('bg-gray-100', 'bg-gray-900');
+                document.getElementById('tabLogin').classList.replace('text-gray-500', 'text-white');
+                document.getElementById('tabReg').classList.replace('bg-gray-900', 'bg-gray-100');
+                document.getElementById('tabReg').classList.replace('text-white', 'text-gray-500');
+            } else {
+                document.getElementById('agentLogin').classList.add('hidden');
+                document.getElementById('agentRegister').classList.remove('hidden');
+                document.getElementById('tabReg').classList.replace('bg-gray-100', 'bg-gray-900');
+                document.getElementById('tabReg').classList.replace('text-gray-500', 'text-white');
+                document.getElementById('tabLogin').classList.replace('bg-gray-900', 'bg-gray-100');
+                document.getElementById('tabLogin').classList.replace('text-white', 'text-gray-500');
+            }
+        }
+
+        async function agentAction(action) {
+            const url = action === 'login' ? '/api/agent/login' : '/api/agent/register';
+            // Simple mock fetch for demo
+            showToast('Agent System: Contact Admin for Approval');
+        }
+
+        // --- SHOP & TRACK ---
+        async function loadProducts() {
+            const grid = document.getElementById('shopGrid');
+            try {
+                const res = await fetch('/api/products');
+                const products = await res.json();
+                
+                grid.innerHTML = products.map(p => `
+                    <div class="bg-gray-50 p-4 rounded-2xl flex gap-4 items-center">
+                        <img src="${p.image}" class="w-16 h-16 object-contain mix-blend-multiply">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-gray-900">${p.name}</h3>
+                            <p class="text-xs text-gray-500">${p.description}</p>
+                            <p class="font-semibold mt-1">₦${p.price.toLocaleString()}</p>
+                        </div>
+                        <button class="bg-black text-white p-2 rounded-xl text-xs">Buy</button>
+                    </div>
+                `).join('');
+            } catch(e) {
+                grid.innerHTML = '<p class="text-center text-gray-400">Could not load products</p>';
+            }
+        }
+
+        async function fetchHistory() {
+            const phone = document.getElementById('trackPhone').value;
+            if(!phone) return showToast('Enter phone number');
+            
+            const list = document.getElementById('historyList');
+            list.innerHTML = '<p class="text-center">Loading...</p>';
+            
+            try {
+                const res = await fetch(`/api/track/${phone}`);
+                const txs = await res.json();
+                
+                if(txs.length === 0) {
+                    list.innerHTML = '<p class="text-center text-gray-400">No transactions found</p>';
+                    return;
+                }
+                
+                list.innerHTML = txs.map(tx => `
+                    <div class="bg-white p-3 rounded-xl border border-gray-100 flex justify-between items-center shadow-sm">
+                        <div>
+                            <p class="text-xs font-bold text-gray-800">${tx.type}</p>
+                            <p class="text-[10px] text-gray-400">${new Date(tx.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-sm">₦${tx.amount}</p>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full ${tx.status === 'SUCCESS' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${tx.status}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch(e) {
+                showToast('Error fetching history');
+            }
+        }
+    </script>
+</body>
+</html>
+
