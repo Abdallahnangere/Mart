@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sauki Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f5f5f7; }
+        .ios-card { background: white; border-radius: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+        .ios-input { background: #f2f2f7; border: none; border-radius: 12px; padding: 14px; width: 100%; outline: none; }
+        .ios-btn { background: #007aff; color: white; border-radius: 12px; font-weight: 600; padding: 14px; width: 100%; transition: opacity 0.2s; }
+        .ios-btn:active { opacity: 0.7; }
+        .sidebar-link { padding: 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; color: #666; font-size: 14px; font-weight: 500; cursor: pointer; }
+        .sidebar-link.active { background: #e5e5ea; color: black; }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+        .status-success { background: #e4fbf0; color: #118d57; }
+        .status-pending { background: #fff8ea; color: #b5850b; }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+    <!-- LOGIN OVERLAY -->
+    <div id="loginScreen" class="fixed inset-0 bg-[#f5f5f7] z-50 flex items-center justify-center p-6">
+        <div class="ios-card w-full max-w-sm p-8 text-center">
+            <div class="w-16 h-16 bg-gray-900 rounded-2xl mx-auto mb-6 flex items-center justify-center">
+                <i data-lucide="lock" class="text-white"></i>
+            </div>
+            <h1 class="text-xl font-bold mb-6">Admin Access</h1>
+            <div class="space-y-4">
+                <input type="email" id="adminEmail" placeholder="Email" class="ios-input">
+                <input type="password" id="adminPass" placeholder="Password" class="ios-input">
+                <button onclick="handleLogin()" class="ios-btn">Sign In</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col p-6">
+        <h2 class="text-xl font-bold mb-8 flex items-center gap-2">
+            <div class="w-8 h-8 bg-black rounded-lg"></div> Sauki
+        </h2>
+        <nav class="space-y-2 flex-1">
+            <div class="sidebar-link active" onclick="switchTab('dashboard')">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
+            </div>
+            <div class="sidebar-link" onclick="switchTab('products')">
+                <i data-lucide="smartphone" class="w-5 h-5"></i> Products
+            </div>
+            <div class="sidebar-link" onclick="switchTab('agents')">
+                <i data-lucide="users" class="w-5 h-5"></i> Agents
+            </div>
+            <div class="sidebar-link" onclick="switchTab('transactions')">
+                <i data-lucide="receipt" class="w-5 h-5"></i> Transactions
+            </div>
+        </nav>
+        <button onclick="logout()" class="sidebar-link text-red-500 hover:bg-red-50">
+            <i data-lucide="log-out" class="w-5 h-5"></i> Logout
+        </button>
+    </aside>
+
+    <!-- MOBILE HEADER -->
+    <div class="md:hidden fixed top-0 w-full bg-white z-20 border-b p-4 flex justify-between items-center">
+        <span class="font-bold">Sauki Admin</span>
+        <button onclick="logout()" class="text-xs text-red-500">Logout</button>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-y-auto p-6 md:p-10 mt-12 md:mt-0">
+        
+        <!-- DASHBOARD TAB -->
+        <div id="dashboard" class="tab-content">
+            <h2 class="text-2xl font-bold mb-6">Overview</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="ios-card p-6">
+                    <p class="text-gray-500 text-sm font-medium">Total Revenue</p>
+                    <h3 class="text-3xl font-bold mt-2 tracking-tight" id="statRevenue">₦0.00</h3>
+                </div>
+                <div class="ios-card p-6">
+                    <p class="text-gray-500 text-sm font-medium">Pending Agents</p>
+                    <h3 class="text-3xl font-bold mt-2 tracking-tight" id="statAgents">0</h3>
+                </div>
+                <div class="ios-card p-6">
+                    <p class="text-gray-500 text-sm font-medium">System Status</p>
+                    <h3 class="text-3xl font-bold mt-2 tracking-tight text-green-500">Active</h3>
+                </div>
+            </div>
+
+            <h3 class="text-lg font-bold mb-4">Recent Transactions</h3>
+            <div class="ios-card overflow-hidden">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="p-4 font-medium text-gray-500">Reference</th>
+                            <th class="p-4 font-medium text-gray-500">Type</th>
+                            <th class="p-4 font-medium text-gray-500">Amount</th>
+                            <th class="p-4 font-medium text-gray-500">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentTxTable" class="divide-y divide-gray-100">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PRODUCTS TAB -->
+        <div id="products" class="tab-content hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Products</h2>
+                <button onclick="document.getElementById('addProductModal').classList.remove('hidden')" class="bg-black text-white px-4 py-2 rounded-xl text-sm font-medium">Add Product</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="productGrid">
+                <!-- Products injected here -->
+            </div>
+        </div>
+
+        <!-- AGENTS TAB -->
+        <div id="agents" class="tab-content hidden">
+            <h2 class="text-2xl font-bold mb-6">Manage Agents</h2>
+            <div class="ios-card overflow-hidden">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="p-4">Name</th>
+                            <th class="p-4">Phone</th>
+                            <th class="p-4">Status</th>
+                            <th class="p-4">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agentTable" class="divide-y divide-gray-100">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ADD PRODUCT MODAL -->
+    <div id="addProductModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl p-6">
+            <h3 class="text-lg font-bold mb-4">Add New Device</h3>
+            <div class="space-y-3">
+                <input id="prodName" type="text" placeholder="Product Name" class="ios-input border">
+                <input id="prodPrice" type="number" placeholder="Price" class="ios-input border">
+                <input id="prodDesc" type="text" placeholder="Description" class="ios-input border">
+                <input id="prodImg" type="text" placeholder="Image URL" class="ios-input border">
+                <button onclick="addProduct()" class="ios-btn bg-black mt-2">Save Product</button>
+                <button onclick="document.getElementById('addProductModal').classList.add('hidden')" class="text-center w-full py-3 text-gray-500 text-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        const API_URL = '/api';
+
+        // --- AUTH ---
+        async function handleLogin() {
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPass').value;
+            
+            try {
+                const res = await fetch(`${API_URL}/admin/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    localStorage.setItem('sauki_admin', data.token);
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    loadDashboard();
+                } else {
+                    alert('Invalid Login');
+                }
+            } catch(e) {
+                alert('Connection Error');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('sauki_admin');
+            location.reload();
+        }
+
+        // --- TABS ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            document.querySelectorAll('.sidebar-link').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active'); // Note: basic handling
+            
+            if(tabId === 'dashboard') loadDashboard();
+            if(tabId === 'products') loadProducts();
+            if(tabId === 'agents') loadAgents();
+        }
+
+        // --- DATA LOADING ---
+        async function loadDashboard() {
+            const res = await fetch(`${API_URL}/admin/stats`);
+            const data = await res.json();
+            
+            document.getElementById('statRevenue').innerText = `₦${data.revenue.toLocaleString()}`;
+            document.getElementById('statAgents').innerText = data.pendingAgents;
+            
+            const tbody = document.getElementById('recentTxTable');
+            tbody.innerHTML = data.recentTx.map(tx => `
+                <tr>
+                    <td class="p-4 font-mono text-xs">${tx.reference}</td>
+                    <td class="p-4 text-xs font-bold">${tx.type}</td>
+                    <td class="p-4">₦${tx.amount.toLocaleString()}</td>
+                    <td class="p-4"><span class="status-badge ${tx.status === 'SUCCESS' ? 'status-success' : 'status-pending'}">${tx.status}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadProducts() {
+            const res = await fetch(`${API_URL}/products`);
+            const products = await res.json();
+            const grid = document.getElementById('productGrid');
+            grid.innerHTML = products.map(p => `
+                <div class="ios-card p-4 relative group">
+                    <img src="${p.image}" class="h-32 w-full object-contain mb-4">
+                    <h4 class="font-bold">${p.name}</h4>
+                    <p class="text-sm text-gray-500 mb-2">₦${p.price.toLocaleString()}</p>
+                    <button onclick="deleteProduct('${p.id}')" class="text-xs text-red-500 bg-red-50 px-3 py-1 rounded-full">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        async function loadAgents() {
+            const res = await fetch(`${API_URL}/admin/agents`);
+            const agents = await res.json();
+            document.getElementById('agentTable').innerHTML = agents.map(a => `
+                <tr>
+                    <td class="p-4 font-bold">${a.name}</td>
+                    <td class="p-4">${a.phone}</td>
+                    <td class="p-4"><span class="status-badge ${a.status==='ACTIVE'?'status-success':'status-pending'}">${a.status}</span></td>
+                    <td class="p-4">
+                        ${a.status === 'PENDING' ? `
+                            <button onclick="approveAgent('${a.id}')" class="text-green-600 font-bold text-xs mr-2">Approve</button>
+                            <button onclick="rejectAgent('${a.id}')" class="text-red-600 font-bold text-xs">Reject</button>
+                        ` : '<span class="text-gray-400 text-xs">No Action</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // --- ACTIONS ---
+        async function addProduct() {
+            const data = {
+                name: document.getElementById('prodName').value,
+                price: document.getElementById('prodPrice').value,
+                description: document.getElementById('prodDesc').value,
+                image: document.getElementById('prodImg').value
+            };
+            await fetch(`${API_URL}/admin/product/add`, {
+                method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+            });
+            document.getElementById('addProductModal').classList.add('hidden');
+            loadProducts();
+        }
+
+        async function deleteProduct(id) {
+            if(confirm('Delete this product?')) {
+                await fetch(`${API_URL}/admin/product/delete`, {
+                    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id})
+                });
+                loadProducts();
+            }
+        }
+
+        async function approveAgent(id) {
+            await fetch(`${API_URL}/admin/agent/approve`, {
+                method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({agentId: id, action: 'ACTIVE'})
+            });
+            loadAgents();
+        }
+    </script>
+</body>
+</html>
+
+
+                  
