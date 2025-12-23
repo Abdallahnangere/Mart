@@ -9,111 +9,42 @@ const app = express();
 const prisma = new PrismaClient();
 const flw = new Flutterwave(process.env.FLW_PUBLIC_KEY, process.env.FLW_SECRET_KEY);
 
+// INCREASE LIMIT FOR IMAGE UPLOAD
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// ==========================================
-// 1. THE WEBHOOK (Critical for Auto-Delivery)
-// ==========================================
-
-app.post('/api/webhook', async (req, res) => {
-    // 1. Validate Secret Hash (Security)
-    const secretHash = process.env.FLW_HASH;
-    const signature = req.headers["verif-hash"];
-    
-    if (!signature || signature !== secretHash) {
-        return res.status(401).end();
-    }
-
-    const { data } = req.body;
-
-    // 2. Handle Successful Payment
-    if (data.status === "successful" && data.tx_ref) {
-        const txRef = data.tx_ref;
-
-        try {
-            // 3. Find Transaction
-            const tx = await prisma.transaction.findUnique({ where: { reference: txRef } });
-
-            // 4. If exists and not yet marked success
-            if (tx && tx.status !== 'SUCCESS') {
-                
-                // Mark as Paid immediately to prevent double processing
-                await prisma.transaction.update({
-                    where: { reference: txRef },
-                    data: { status: 'SUCCESS' }
-                });
-
-                // 5. IF DATA PURCHASE -> DELIVER VIA AMIGO
-                if (tx.type === 'DATA_PURCHASE' && tx.network && tx.planName) {
-                    
-                    // We stored networkId and PlanId in the DB or need to map them
-                    // Assuming we passed them in metadata during charge init, 
-                    // ideally we should store them in specific columns, but here we parse or fetch.
-                    
-                    // NOTE: In the /charge endpoint below, we save network/plan to the DB columns.
-                    // Converting network string to ID (simple mapping for safety)
-                    const networkMap = { 'MTN': 1, 'GLO': 2, 'AIRTEL': 3, '1': 1, '2': 2 };
-                    const netId = networkMap[tx.network] || 1;
-                    
-                    // The plan ID is usually stored in description or a dedicated column. 
-                    // For this robust version, we assume the 'planName' column actually holds the Plan ID 
-                    // (See the /charge route update below to ensure this).
-                    const planId = parseInt(tx.planName); 
-
-                    const payload = {
-                        network: netId,
-                        mobile_number: tx.customerPhone,
-                        plan: planId,
-                        Ported_number: false
-                    };
-
-                    // Call Amigo API
-                    const amigoRes = await axios.post('https://amigo.ng/api/data/', payload, {
-                        headers: {
-                            'X-API-Key': process.env.AMIGO_API_KEY,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    // Update Transaction with Delivery Status
-                    if (amigoRes.data.status === 'delivered' || amigoRes.data.success) {
-                        await prisma.transaction.update({
-                            where: { reference: txRef },
-                            data: { description: tx.description + " [DELIVERED]" }
-                        });
-                    }
-                }
-            }
-        } catch (err) {
-            console.error("Webhook processing error:", err);
-        }
-    }
-
-    // Always return 200 OK to Flutterwave
-    res.sendStatus(200);
-});
-
-
-// ==========================================
-// 2. PUBLIC API ROUTES
-// ==========================================
-
-// Get Products
-app.get('/api/products', async (req, res) => {
+// --- UTILS ---
+const deliverData = async (mobile, networkId, planId, ported = false) => {
     try {
-        const products = await prisma.product.findMany({ where: { inStock: true } });
-        res.json(products);
-    } catch (e) { res.status(500).json({ error: 'Server Error' }); }
+        const payload = { network: parseInt(networkId), mobile_number: mobile, plan: parseInt(planId), Ported_number: ported };
+        const response = await axios.post('https://amigo.ng/api/data/', payload, {
+            headers: { 'X-API-Key': process.env.AMIGO_API_KEY, 'Content-Type': 'application/json' }
+        });
+        return { success: true, data: response.data };
+    } catch (e) {
+        return { success: false, error: e.response ? e.response.data : e.message };
+    }
+};
+
+// --- 1. PUBLIC ROUTES ---
+app.get('/api/plans', async (req, res) => {
+    try {
+        const plans = await prisma.dataPlan.findMany({ orderBy: { price: 'asc' } });
+        res.json(plans);
+    } catch (e) { res.status(500).json([]); }
 });
 
-// Initialize Payment
+app.get('/api/products', async (req, res) => {
+    const products = await prisma.product.findMany({ where: { inStock: true } });
+    res.json(products);
+});
+
 app.post('/api/pay/charge', async (req, res) => {
     const { amount, email, phone, name, type, metadata } = req.body;
     const txRef = `SAUKI-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     try {
-        // Save to DB
         await prisma.transaction.create({
             data: {
                 reference: txRef,
@@ -123,21 +54,21 @@ app.post('/api/pay/charge', async (req, res) => {
                 customerPhone: phone,
                 customerName: name,
                 description: metadata.desc,
-                network: String(metadata.networkId), // Storing ID "1" or "2"
-                planName: String(metadata.planId)    // Storing ID "1001" etc for Amigo
+                network: String(metadata.networkId),
+                planName: String(metadata.planId)
             }
         });
 
         const payload = {
             tx_ref: txRef,
             amount: amount,
-            email: email,
+            email: email || 'customer@sauki.com',
             phone_number: phone,
             currency: "NGN",
             fullname: name,
             meta: metadata,
             is_permanent: false,
-            narration: `Sauki Data - ${phone}`
+            narration: `Sauki Data ${phone}`
         };
 
         const response = await flw.Charge.bank_transfer(payload);
@@ -151,52 +82,136 @@ app.post('/api/pay/charge', async (req, res) => {
                 ref: txRef
             });
         } else {
-            res.status(400).json({ error: 'Failed to generate account' });
+            res.status(400).json({ error: 'Bank System Busy' });
         }
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: 'Payment Init Failed' });
+        res.status(500).json({ error: 'System Error' });
     }
 });
 
-// Transaction Status Check (Manual Polling)
 app.get('/api/transaction/check/:ref', async (req, res) => {
     const { ref } = req.params;
-    try {
-        const tx = await prisma.transaction.findUnique({ where: { reference: ref } });
-        if (!tx) return res.json({ status: 'NOT_FOUND' });
-        
-        // If pending, ask Flutterwave (Backup check)
-        if (tx.status === 'PENDING') {
+    const tx = await prisma.transaction.findUnique({ where: { reference: ref } });
+    if (!tx) return res.json({ status: 'NOT_FOUND' });
+    
+    if (tx.status === 'PENDING') {
+        try {
             const flwRes = await flw.Transaction.verify({ id: ref });
             if (flwRes.data.status === "successful" && flwRes.data.amount >= tx.amount) {
-                 await prisma.transaction.update({
-                    where: { reference: ref },
-                    data: { status: 'SUCCESS' }
-                });
+                await prisma.transaction.update({ where: { reference: ref }, data: { status: 'SUCCESS' } });
+                if (tx.type === 'DATA_PURCHASE') {
+                    const del = await deliverData(tx.customerPhone, tx.network, tx.planName);
+                    await prisma.transaction.update({ where: { reference: ref }, data: { amigoResponse: JSON.stringify(del) } });
+                }
                 return res.json({ status: 'SUCCESS', tx });
             }
-        }
-        res.json({ status: tx.status, tx });
-    } catch (e) {
-        res.json({ status: 'PENDING' });
+        } catch (e) {}
     }
+    res.json({ status: tx.status, tx });
 });
 
-// Track History
-app.get('/api/track/:phone', async (req, res) => {
-    const txs = await prisma.transaction.findMany({
-        where: { customerPhone: req.params.phone },
-        orderBy: { createdAt: 'desc' },
-        take: 5
+app.post('/api/webhook', async (req, res) => {
+    const secretHash = process.env.FLW_HASH;
+    const signature = req.headers["verif-hash"];
+    if (!signature || signature !== secretHash) return res.status(401).end();
+
+    const { data } = req.body;
+    if (data.status === "successful") {
+        const tx = await prisma.transaction.findUnique({ where: { reference: data.tx_ref } });
+        if (tx && tx.status !== 'SUCCESS') {
+            await prisma.transaction.update({ where: { reference: data.tx_ref }, data: { status: 'SUCCESS' } });
+            
+            if (tx.type === 'WALLET_FUNDING' && tx.agentId) {
+                await prisma.agent.update({ where: { id: tx.agentId }, data: { balance: { increment: tx.amount } } });
+            }
+            else if (tx.type === 'DATA_PURCHASE') {
+                const del = await deliverData(tx.customerPhone, tx.network, tx.planName);
+                await prisma.transaction.update({ where: { reference: data.tx_ref }, data: { amigoResponse: JSON.stringify(del) } });
+            }
+        }
+    }
+    res.sendStatus(200);
+});
+
+// --- 2. AGENT ROUTES ---
+app.post('/api/agent/register', async (req, res) => {
+    const { name, phone, email, pin } = req.body;
+    try {
+        await prisma.agent.create({ data: { name, phone, email, pin, status: 'PENDING' } });
+        res.json({ success: true });
+    } catch (e) { res.status(400).json({ error: 'Phone already registered' }); }
+});
+
+app.post('/api/agent/login', async (req, res) => {
+    const { phone, pin } = req.body;
+    const agent = await prisma.agent.findUnique({ where: { phone } });
+    if (agent && agent.pin === pin) {
+        if (agent.status !== 'ACTIVE') return res.status(403).json({ error: 'Account pending approval' });
+        res.json({ success: true, agent });
+    } else { res.status(401).json({ error: 'Invalid credentials' }); }
+});
+
+app.post('/api/agent/create-account', async (req, res) => {
+    const { agentId } = req.body;
+    const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+    if (agent.virtualAccountNumber) return res.json({ success: true, agent });
+    
+    try {
+        const payload = {
+            email: agent.email || `agent${agent.phone}@sauki.com`,
+            is_permanent: true,
+            bvn: process.env.MY_BVN,
+            tx_ref: `AGENT-${agent.id}`,
+            phonenumber: agent.phone,
+            firstname: agent.name,
+            lastname: "Agent",
+            narration: `Sauki Agent Funding`
+        };
+        const response = await flw.VirtualAccount.create(payload);
+        if (response.status === 'success') {
+            const updated = await prisma.agent.update({
+                where: { id: agentId },
+                data: {
+                    virtualAccountBank: response.data.bank_name,
+                    virtualAccountNumber: response.data.account_number,
+                    virtualAccountName: "Sauki Agent Wallet"
+                }
+            });
+            res.json({ success: true, agent: updated });
+        } else { res.status(400).json({ error: 'Could not create static account' }); }
+    } catch (e) { res.status(500).json({ error: 'Provider Error' }); }
+});
+
+app.post('/api/agent/buy', async (req, res) => {
+    const { agentId, pin, amount, networkId, planId, phone } = req.body;
+    const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+    
+    if (!agent || agent.pin !== pin) return res.status(401).json({ error: 'Invalid PIN' });
+    if (agent.balance < amount) return res.status(400).json({ error: 'Insufficient Balance' });
+
+    const txRef = `AGT-${Date.now()}`;
+    await prisma.agent.update({ where: { id: agentId }, data: { balance: { decrement: parseFloat(amount) } } });
+    await prisma.transaction.create({
+        data: {
+            reference: txRef,
+            type: 'DATA_PURCHASE',
+            status: 'SUCCESS',
+            amount: parseFloat(amount),
+            customerPhone: phone,
+            customerName: agent.name,
+            agentId: agent.id,
+            network: String(networkId),
+            planName: String(planId),
+            description: 'Agent Wallet Purchase'
+        }
     });
-    res.json(txs);
+
+    const del = await deliverData(phone, networkId, planId);
+    await prisma.transaction.update({ where: { reference: txRef }, data: { amigoResponse: JSON.stringify(del) } });
+    res.json({ success: true, txRef });
 });
 
-// ==========================================
-// 3. ADMIN ROUTES
-// ==========================================
-
+// --- 3. ADMIN ROUTES ---
 app.post('/api/admin/login', (req, res) => {
     const { email, password } = req.body;
     if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
@@ -207,7 +222,7 @@ app.post('/api/admin/login', (req, res) => {
 app.get('/api/admin/stats', async (req, res) => {
     const totalSales = await prisma.transaction.aggregate({ where: { status: 'SUCCESS' }, _sum: { amount: true } });
     const pendingAgents = await prisma.agent.count({ where: { status: 'PENDING' } });
-    const recentTx = await prisma.transaction.findMany({ take: 10, orderBy: { createdAt: 'desc' } });
+    const recentTx = await prisma.transaction.findMany({ take: 20, orderBy: { createdAt: 'desc' } });
     res.json({ revenue: totalSales._sum.amount || 0, pendingAgents, recentTx });
 });
 
@@ -217,20 +232,71 @@ app.get('/api/admin/agents', async (req, res) => {
 });
 
 app.post('/api/admin/agent/approve', async (req, res) => {
-    const { agentId, action } = req.body;
-    await prisma.agent.update({ where: { id: agentId }, data: { status: action } });
+    await prisma.agent.update({ where: { id: req.body.agentId }, data: { status: req.body.action } });
     res.json({ success: true });
 });
 
+app.post('/api/admin/retry', async (req, res) => {
+    const { txId } = req.body;
+    const tx = await prisma.transaction.findUnique({ where: { id: txId } });
+    if (tx && tx.network && tx.planName) {
+        const del = await deliverData(tx.customerPhone, tx.network, tx.planName);
+        await prisma.transaction.update({ where: { id: txId }, data: { amigoResponse: JSON.stringify(del) } });
+        return res.json({ success: true, new_response: del });
+    }
+    res.status(400).json({ error: 'Cannot retry' });
+});
+
+// -- PRODUCTS (ADD/EDIT/DELETE) --
 app.post('/api/admin/product/add', async (req, res) => {
     const { name, price, description, image } = req.body;
     await prisma.product.create({ data: { name, price: parseFloat(price), description, image } });
     res.json({ success: true });
 });
 
+app.post('/api/admin/product/update', async (req, res) => {
+    const { id, name, price, description, image } = req.body;
+    const data = { name, price: parseFloat(price), description };
+    if (image) data.image = image; // Only update image if new one provided
+    await prisma.product.update({ where: { id }, data });
+    res.json({ success: true });
+});
+
 app.post('/api/admin/product/delete', async (req, res) => {
     await prisma.product.delete({ where: { id: req.body.id } });
     res.json({ success: true });
+});
+
+// -- PLANS (ADD/EDIT/DELETE) --
+app.post('/api/admin/plans/add', async (req, res) => {
+    const { network, networkId, planId, name, price } = req.body;
+    await prisma.dataPlan.create({
+        data: { network, networkId: parseInt(networkId), planId: parseInt(planId), name, price: parseFloat(price) }
+    });
+    res.json({ success: true });
+});
+
+app.post('/api/admin/plans/update', async (req, res) => {
+    const { id, network, networkId, planId, name, price } = req.body;
+    await prisma.dataPlan.update({
+        where: { id },
+        data: { network, networkId: parseInt(networkId), planId: parseInt(planId), name, price: parseFloat(price) }
+    });
+    res.json({ success: true });
+});
+
+app.post('/api/admin/plans/delete', async (req, res) => {
+    await prisma.dataPlan.delete({ where: { id: req.body.id } });
+    res.json({ success: true });
+});
+
+app.get('/api/track/:phone', async (req, res) => {
+    const txs = await prisma.transaction.findMany({
+        where: { customerPhone: req.params.phone },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+    });
+    res.json(txs);
 });
 
 const PORT = process.env.PORT || 3000;
