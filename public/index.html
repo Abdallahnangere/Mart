@@ -2,332 +2,689 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SAUKI MART</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SAUKI MART | Premium Data & Devices</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://checkout.flutterwave.com/v3.js"></script>
+    
+    <!-- Receipt Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- Google Fonts (Inter for that clean Apple look) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
-        /* STRICT 100% HEIGHT LAYOUT */
-        html, body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: #000; 
-            height: 100dvh; /* Dynamic Height */
-            width: 100vw;
-            overflow: hidden; /* No Body Scroll */
-            margin: 0; padding: 0;
-            display: flex; justify-content: center;
+        /* Apple-style Smoothness */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fafafa; /* neutral-50 */
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden; /* Prevent body scroll */
         }
         
-        /* APP FRAME (Mobile Simulation) */
-        #app-frame { 
-            background-color: #F5F5F7; 
-            width: 100%; 
-            max-width: 430px; /* iPhone Max Width */
-            height: 100%; 
-            position: relative; 
-            overflow: hidden; 
-            display: flex; 
-            flex-direction: column; 
+        /* Hide Scrollbar but allow scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
         }
-        
-        /* HEADER (Fixed at top of frame) */
-        .glass-header { 
-            position: absolute; top: 0; left: 0; right: 0; height: 85px;
-            background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); 
-            z-index: 50; padding: 45px 20px 10px 20px; 
-            border-bottom: 1px solid rgba(0,0,0,0.05); 
-            display: flex; justify-content: space-between; align-items: center; 
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
 
-        /* SCROLLABLE CONTENT AREAS */
-        .content-area { 
-            position: absolute; inset: 0; top: 85px; /* Starts below header */
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
-            padding: 20px;
-            padding-bottom: 40px; 
-            display: none; 
-            background: #F5F5F7;
+        /* Slide Transitions */
+        .view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            background-color: #fafafa;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(100%);
+            z-index: 10;
         }
-        .content-area.active { display: block; animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* COMPONENTS */
-        .ios-card { background: white; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); transition: 0.1s; }
-        .ios-card:active { transform: scale(0.97); }
-        
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .view.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(0);
+            z-index: 20;
+        }
+
+        .view.exit-left {
+            transform: translateX(-30%);
+            opacity: 0;
+            z-index: 10;
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        /* Door Card Hover Lift */
+        .door-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .door-card:active {
+            transform: scale(0.98);
+        }
     </style>
 </head>
-<body>
+<body class="text-gray-800">
 
-    <div id="app-frame">
-        
-        <!-- HEADER -->
-        <header class="glass-header">
-            <div class="flex items-center gap-3">
-                <img src="logo.png" onerror="this.src='https://placehold.co/40?text=S'" class="w-10 h-10 rounded-xl border border-gray-100 shadow-sm">
-                <div>
-                    <h1 class="text-sm font-bold leading-none text-gray-900 tracking-tight">SAUKI MART</h1>
-                    <span class="text-[10px] text-green-600 font-bold flex items-center gap-1 mt-0.5">
-                        <div class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div> Certified
-                    </span>
+    <!-- APP CONTAINER -->
+    <div id="app" class="relative w-full h-screen overflow-hidden max-w-md mx-auto bg-white shadow-2xl sm:rounded-3xl sm:h-[90vh] sm:mt-[5vh] sm:border sm:border-gray-100">
+
+        <!-- NOTIFICATION TOAST -->
+        <div id="toast" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg z-50 text-sm font-medium transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4"></i>
+            <span id="toast-msg">Notification</span>
+        </div>
+
+        <!-- LOADING OVERLAY -->
+        <div id="loader" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 hidden flex-col items-center justify-center">
+            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900"></div>
+            <p class="mt-4 text-sm font-medium text-gray-500">Processing...</p>
+        </div>
+
+        <!-- ======================= 1. HOME VIEW ======================= -->
+        <div id="view-home" class="view active no-scrollbar p-6 flex flex-col h-full">
+            <!-- Header -->
+            <div class="mt-4 mb-6 flex flex-col items-center text-center animate-fade-in">
+                <!-- Placeholder for logo.png -->
+                <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+                    <img src="/logo.png" onerror="this.src='https://placehold.co/100x100?text=SM'" alt="Logo" class="w-12 h-12 object-contain opacity-80">
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight text-gray-900">Welcome to Sauki Mart</h1>
+                <p class="text-xs text-gray-500 mt-2 px-4 leading-relaxed">
+                    Premium MTN routers, SIMs, and affordable data plans. <br>
+                    Delivered nationwide in 24–48 hours.
+                </p>
+                <div class="flex items-center gap-2 mt-3">
+                     <span class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-wider">SMEDAN Certified</span>
+                     <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full uppercase tracking-wider">Free Delivery</span>
                 </div>
             </div>
-            <!-- Admin Link -->
-            <a href="admin.html" class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center opacity-50">
-                <i data-lucide="shield" class="w-3 h-3 text-gray-400"></i>
-            </a>
-        </header>
 
-        <!-- VIEW 1: HOME -->
-        <div id="view-home" class="content-area active">
+            <!-- The 4 Doors -->
+            <div class="grid grid-cols-2 gap-4 flex-1 content-start">
+                
+                <!-- Door 1: Shop Devices -->
+                <div onclick="navTo('view-shop')" class="door-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-40 border border-gray-100 shadow-sm cursor-pointer hover:bg-white hover:shadow-md">
+                    <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-3 text-orange-600">
+                        <i data-lucide="shopping-bag"></i>
+                    </div>
+                    <h3 class="font-semibold text-sm">Shop Devices</h3>
+                    <p class="text-[10px] text-gray-400 mt-1">Routers & SIMs</p>
+                </div>
+
+                <!-- Door 2: Buy Data -->
+                <div onclick="navTo('view-data')" class="door-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-40 border border-gray-100 shadow-sm cursor-pointer hover:bg-white hover:shadow-md">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3 text-blue-600">
+                        <i data-lucide="wifi"></i>
+                    </div>
+                    <h3 class="font-semibold text-sm">Buy Data</h3>
+                    <p class="text-[10px] text-gray-400 mt-1">MTN & Glo Plans</p>
+                </div>
+
+                <!-- Door 3: Agent -->
+                <div onclick="navTo('view-agent')" class="door-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-40 border border-gray-100 shadow-sm cursor-pointer hover:bg-white hover:shadow-md">
+                    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 text-purple-600">
+                        <i data-lucide="users"></i>
+                    </div>
+                    <h3 class="font-semibold text-sm">Become Agent</h3>
+                    <p class="text-[10px] text-gray-400 mt-1">Earn Commissions</p>
+                </div>
+
+                <!-- Door 4: Track -->
+                <div onclick="navTo('view-track')" class="door-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-40 border border-gray-100 shadow-sm cursor-pointer hover:bg-white hover:shadow-md">
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-600">
+                        <i data-lucide="search"></i>
+                    </div>
+                    <h3 class="font-semibold text-sm">Track Order</h3>
+                    <p class="text-[10px] text-gray-400 mt-1">Status & Receipts</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="mt-auto pt-6 pb-2 flex flex-col items-center opacity-60">
+                <div class="flex gap-4 mb-2 grayscale">
+                    <!-- Placeholders for coat.png, smedan.png -->
+                     <img src="/coat.png" onerror="this.style.display='none'" class="h-6 object-contain">
+                     <img src="/smedan.png" onerror="this.style.display='none'" class="h-6 object-contain">
+                </div>
+                <p class="text-[10px] text-gray-400">Support: saukidatalinks@gmail.com</p>
+                <div onclick="navTo('view-admin')" class="mt-2 text-[9px] text-gray-300 uppercase tracking-widest cursor-pointer">Admin Login</div>
+            </div>
+        </div>
+
+        <!-- ======================= 2. DATA VIEW ======================= -->
+        <div id="view-data" class="view no-scrollbar bg-white">
+            <!-- Header -->
+            <div class="glass sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                <h2 class="font-semibold text-sm">Buy Mobile Data</h2>
+                <div class="w-8"></div> <!-- Spacer -->
+            </div>
+
+            <div class="p-6">
+                <!-- Network Selector -->
+                <div class="flex gap-3 mb-6">
+                    <button onclick="selectNetwork(1)" id="btn-net-mtn" class="flex-1 py-4 border-2 border-yellow-400 bg-yellow-50 rounded-2xl flex flex-col items-center justify-center transition-all ring-2 ring-offset-1 ring-transparent">
+                        <span class="font-bold text-gray-800">MTN</span>
+                        <span class="text-[10px] text-gray-500">SME & Direct</span>
+                    </button>
+                    <button onclick="selectNetwork(2)" id="btn-net-glo" class="flex-1 py-4 border border-gray-200 bg-white rounded-2xl flex flex-col items-center justify-center grayscale opacity-60 transition-all">
+                        <span class="font-bold text-green-700">Glo</span>
+                        <span class="text-[10px] text-gray-500">Corporate</span>
+                    </button>
+                </div>
+
+                <!-- Input Phone -->
+                <div class="mb-6">
+                    <label class="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Mobile Number</label>
+                    <div class="relative">
+                        <input type="tel" id="data-phone" placeholder="0801 234 5678" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium rounded-xl p-4 pl-12 focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all">
+                        <i data-lucide="smartphone" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <!-- Plan Selector (Populated by JS) -->
+                <label class="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Select Plan</label>
+                <div id="plan-list" class="space-y-3">
+                    <!-- Loading State -->
+                    <div class="animate-pulse space-y-3">
+                        <div class="h-16 bg-gray-100 rounded-xl"></div>
+                        <div class="h-16 bg-gray-100 rounded-xl"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= 3. SHOP DEVICES VIEW ======================= -->
+        <div id="view-shop" class="view no-scrollbar bg-white">
+            <div class="glass sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                <h2 class="font-semibold text-sm">Premium Devices</h2>
+                <div class="w-8"></div>
+            </div>
+
+            <div class="p-6">
+                <div id="product-list" class="grid grid-cols-1 gap-6">
+                    <!-- Products injected via JS -->
+                    <div class="text-center text-gray-400 mt-10">Loading products...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= 4. TRACK VIEW ======================= -->
+        <div id="view-track" class="view no-scrollbar bg-white">
+            <div class="glass sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                <h2 class="font-semibold text-sm">Track Transaction</h2>
+                <div class="w-8"></div>
+            </div>
+
+            <div class="p-6">
+                <div class="mb-6">
+                    <label class="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Enter Phone Number</label>
+                    <div class="flex gap-2">
+                        <input type="tel" id="track-phone" placeholder="0801..." class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-4 outline-none focus:ring-2 focus:ring-black">
+                        <button onclick="fetchHistory()" class="bg-black text-white px-6 rounded-xl font-medium text-sm hover:bg-gray-800 transition-colors">Track</button>
+                    </div>
+                </div>
+
+                <div id="history-list" class="space-y-4">
+                    <!-- History injected here -->
+                    <div class="text-center text-gray-400 py-10 flex flex-col items-center">
+                        <i data-lucide="history" class="w-10 h-10 mb-3 opacity-20"></i>
+                        <span class="text-xs">Enter number to see recent orders</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= 5. AGENT VIEW ======================= -->
+        <div id="view-agent" class="view no-scrollbar bg-white">
+            <div class="glass sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                <h2 class="font-semibold text-sm">Agent Portal</h2>
+                <div class="w-8"></div>
+            </div>
+
+            <div class="p-6 flex flex-col items-center justify-center min-h-[60vh] text-center">
+                <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4">
+                    <i data-lucide="crown" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-lg font-bold">Become a Partner</h3>
+                <p class="text-sm text-gray-500 mt-2 mb-8 max-w-[240px]">Get discounted rates on data and resell to your community. Wallet system coming soon.</p>
+                
+                <button class="w-full bg-black text-white py-4 rounded-xl font-semibold mb-3">Login</button>
+                <button class="w-full bg-gray-100 text-gray-800 py-4 rounded-xl font-semibold">Register Request</button>
+            </div>
+        </div>
+
+        <!-- ======================= ADMIN VIEW ======================= -->
+        <div id="view-admin" class="view no-scrollbar bg-gray-900 text-white">
+            <div class="px-6 py-4 flex items-center justify-between border-b border-gray-800">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-800"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                <h2 class="font-semibold text-sm">Admin Console</h2>
+                <div class="w-8"></div>
+            </div>
             
-            <!-- Hero -->
-            <div class="bg-[#111] rounded-3xl p-6 text-white mb-4 relative overflow-hidden shadow-xl shadow-gray-200">
-                <div class="relative z-10">
-                    <span class="border border-white/20 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider backdrop-blur-md">Official Partner</span>
-                    <h2 class="text-xl font-bold mt-3 mb-1">Premium Data.<br>Instant Delivery.</h2>
-                    <p class="text-gray-400 text-xs mb-4">MTN, Glo & Airtel Authorized.</p>
-                    <button onclick="nav('data')" class="bg-white text-black px-6 py-2.5 rounded-full text-xs font-bold active:opacity-80 transition">Buy Bundle</button>
-                </div>
-                <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-600 rounded-full blur-3xl opacity-30"></div>
+            <div id="admin-login" class="p-6">
+                <h3 class="text-xl font-bold mb-6">Access Control</h3>
+                <input id="admin-user" type="email" placeholder="Email" class="w-full bg-gray-800 border-none rounded-xl p-4 mb-3 text-white">
+                <input id="admin-pass" type="password" placeholder="Password" class="w-full bg-gray-800 border-none rounded-xl p-4 mb-6 text-white">
+                <button onclick="adminLogin()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold transition-colors">Enter Panel</button>
             </div>
 
-            <!-- Main Menu -->
-            <div class="grid grid-cols-2 gap-3 mb-4">
-                <div onclick="nav('devices')" class="ios-card p-4 h-36 flex flex-col justify-between cursor-pointer">
-                    <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center"><i data-lucide="router" class="text-blue-600 w-5 h-5"></i></div>
-                    <div><span class="font-bold text-sm block">Shop Devices</span><span class="text-[10px] text-gray-400">Routers & SIMs</span></div>
+            <div id="admin-dash" class="hidden p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold">Recent Transactions</h3>
+                    <button onclick="loadAdminTxs()" class="p-2 bg-gray-800 rounded-lg"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
                 </div>
-                <div onclick="nav('agent')" class="ios-card p-4 h-36 flex flex-col justify-between cursor-pointer">
-                    <div class="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center"><i data-lucide="users" class="text-green-600 w-5 h-5"></i></div>
-                    <div><span class="font-bold text-sm block">Agent Portal</span><span class="text-[10px] text-gray-400">Reseller Wallet</span></div>
-                </div>
-            </div>
-
-            <!-- Track -->
-            <div class="ios-card p-4 mb-6">
-                <div class="flex items-center gap-3 mb-3">
-                    <div class="bg-purple-50 w-8 h-8 rounded-full flex items-center justify-center"><i data-lucide="search" class="text-purple-600 w-4 h-4"></i></div>
-                    <h3 class="font-bold text-xs">Track Transaction</h3>
-                </div>
-                <div class="flex gap-2">
-                    <input id="track-input" type="tel" placeholder="Phone Number" class="flex-1 bg-gray-50 rounded-xl px-4 py-2.5 text-xs font-bold outline-none">
-                    <button onclick="trackOrder()" class="bg-black text-white px-4 rounded-xl text-xs font-bold">Check</button>
-                </div>
-                <div id="track-results" class="mt-2 space-y-1"></div>
-            </div>
-
-            <!-- CONTACTS -->
-            <div class="text-center pb-8 border-t border-gray-200 pt-6">
-                <h4 class="text-xs font-bold text-gray-400 mb-4 uppercase tracking-widest">Support</h4>
-                <div class="grid grid-cols-2 gap-3 mb-6">
-                    <a href="https://wa.me/2348164135836" class="ios-card p-3 flex items-center gap-3 border border-green-100">
-                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center"><i data-lucide="message-circle" class="w-4 h-4 text-green-600"></i></div>
-                        <div class="text-left"><span class="block text-[10px] text-gray-400">WhatsApp</span><span class="font-bold text-xs">0816...</span></div>
-                    </a>
-                    <a href="https://wa.me/2348061934056" class="ios-card p-3 flex items-center gap-3 border border-green-100">
-                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center"><i data-lucide="message-circle" class="w-4 h-4 text-green-600"></i></div>
-                        <div class="text-left"><span class="block text-[10px] text-gray-400">WhatsApp</span><span class="font-bold text-xs">0806...</span></div>
-                    </a>
-                    <a href="mailto:saukidatalinks@gmail.com" class="ios-card p-3 flex items-center gap-3 col-span-2">
-                        <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center"><i data-lucide="mail" class="w-4 h-4 text-gray-600"></i></div>
-                        <div class="text-left"><span class="block text-[10px] text-gray-400">Email Support</span><span class="font-bold text-xs">saukidatalinks@gmail.com</span></div>
-                    </a>
-                </div>
-                <div class="flex justify-center items-center gap-5 grayscale opacity-60">
-                    <img src="coat.png" class="h-8 object-contain" onerror="this.style.display='none'">
-                    <div class="h-6 w-px bg-gray-300"></div>
-                    <img src="smedan.png" class="h-8 object-contain" onerror="this.style.display='none'">
-                </div>
+                <div id="admin-tx-list" class="space-y-2 text-xs"></div>
             </div>
         </div>
 
-        <!-- VIEW 2: BUY DATA -->
-        <div id="view-data" class="content-area">
-            <button onclick="nav('home')" class="mb-4 text-xs font-bold text-gray-500 flex items-center gap-1"><i data-lucide="arrow-left" class="w-3 h-3"></i> Home</button>
-            <h2 class="text-2xl font-bold mb-6">Buy Bundle</h2>
-            <div class="flex gap-2 mb-6">
-                <button onclick="loadPlans(1)" id="net-1" class="flex-1 py-3 rounded-xl border border-gray-200 font-bold text-xs">MTN</button>
-                <button onclick="loadPlans(2)" id="net-2" class="flex-1 py-3 rounded-xl border border-gray-200 font-bold text-xs">Glo</button>
-                <button onclick="loadPlans(3)" id="net-3" class="flex-1 py-3 rounded-xl border border-gray-200 font-bold text-xs">Airtel</button>
-            </div>
-            <div id="plans-list" class="space-y-3 pb-20"></div>
-        </div>
+        <!-- ======================= MODALS ======================= -->
 
-        <!-- VIEW 3: DEVICES -->
-        <div id="view-devices" class="content-area">
-            <button onclick="nav('home')" class="mb-4 text-xs font-bold text-gray-500 flex items-center gap-1"><i data-lucide="arrow-left" class="w-3 h-3"></i> Home</button>
-            <h2 class="text-2xl font-bold mb-6">Premium Devices</h2>
-            <div id="products-list" class="grid grid-cols-2 gap-4 pb-20"></div>
-        </div>
-
-        <!-- MODAL: PAY -->
-        <div id="modal-pay" class="fixed inset-0 z-[60] bg-white/95 backdrop-blur-xl hidden flex flex-col items-center justify-center p-8">
-            <div class="w-full max-w-xs text-center">
-                <h2 class="font-bold text-xl mb-8">Processing Order</h2>
+        <!-- Payment Modal -->
+        <div id="payment-modal" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-6 animate-slide-up shadow-2xl relative">
+                <button onclick="closeModal('payment-modal')" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
                 
-                <div class="flex items-center gap-4 mb-6 transition-all" id="stg-1">
-                    <div id="ldr-1" class="w-8 h-8 rounded-full border-2 border-gray-200 border-t-black animate-spin"></div>
-                    <div class="text-left"><p class="font-bold text-sm">Payment</p><p class="text-[10px] text-gray-400">Verifying...</p></div>
+                <div class="text-center mb-6">
+                    <div class="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i data-lucide="credit-card" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="font-bold text-lg">Complete Payment</h3>
+                    <p class="text-xs text-gray-500 mt-1">Transfer exact amount to the account below.</p>
                 </div>
+
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6 text-center">
+                    <p class="text-[10px] uppercase text-gray-400 tracking-wider mb-1">Bank Name</p>
+                    <p class="font-bold text-gray-800 mb-3">Flutterwave / Wema Bank</p>
+                    
+                    <p class="text-[10px] uppercase text-gray-400 tracking-wider mb-1">Account Number</p>
+                    <div class="flex items-center justify-center gap-2 mb-3">
+                        <p class="text-2xl font-mono font-bold tracking-widest" id="pay-acc">9912345678</p>
+                        <i data-lucide="copy" class="w-4 h-4 text-gray-400 cursor-pointer"></i>
+                    </div>
+
+                    <p class="text-[10px] uppercase text-gray-400 tracking-wider mb-1">Amount</p>
+                    <p class="text-xl font-bold text-green-600" id="pay-amt">₦0.00</p>
+                </div>
+
+                <button onclick="confirmPayment()" class="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg transform active:scale-95 transition-all">
+                    I Have Sent the Money
+                </button>
+                <p class="text-[10px] text-center text-gray-400 mt-3">Automated confirmation. Do not close.</p>
+            </div>
+        </div>
+
+        <!-- Receipt Modal -->
+        <div id="receipt-modal" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
+                <button onclick="closeModal('receipt-modal')" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
                 
-                <div class="flex items-center gap-4 mb-8 opacity-30 transition-all" id="stg-2">
-                    <div id="ldr-2" class="w-8 h-8 rounded-full border-2 border-gray-200"></div>
-                    <div class="text-left"><p class="font-bold text-sm">Delivery</p><p class="text-[10px] text-gray-400">Sending Data...</p></div>
+                <!-- Receipt Content to Capture -->
+                <div id="receipt-content" class="bg-white p-4 border border-dashed border-gray-200 rounded-xl mb-4">
+                    <div class="text-center border-b border-gray-100 pb-4 mb-4">
+                        <h3 class="font-bold text-lg uppercase tracking-widest text-gray-900">Sauki Mart</h3>
+                        <p class="text-[10px] text-gray-400">Transaction Receipt</p>
+                    </div>
+                    <div class="space-y-3 text-sm">
+    <div class="flex justify-between"><span class="text-gray-500">Status</span> <span class="font-bold text-green-600 uppercase" id="rcpt-status">SUCCESS</span></div>
+                        <div class="flex justify-between"><span class="text-gray-500">Ref</span> <span class="font-mono text-xs text-right" id="rcpt-ref">...</span></div>
+                        <div class="flex justify-between"><span class="text-gray-500">Date</span> <span class="text-right" id="rcpt-date">...</span></div>
+                        <div class="flex justify-between"><span class="text-gray-500">Item</span> <span class="text-right font-medium" id="rcpt-item">...</span></div>
+                        <div class="flex justify-between"><span class="text-gray-500">Amount</span> <span class="font-bold" id="rcpt-amt">...</span></div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-gray-100 text-center">
+                        <p class="text-[10px] text-gray-400">Thank you for your patronage.</p>
+                        <p class="text-[9px] text-gray-300 mt-1">saukidatalinks@gmail.com</p>
+                    </div>
                 </div>
 
-                <div id="pay-success" class="hidden animate-bounce-in">
-                    <div class="bg-green-100 text-green-700 p-3 rounded-xl font-bold text-xs mb-4">Delivery Successful!</div>
-                    <button onclick="downloadReceipt()" class="bg-black text-white w-full py-3 rounded-xl font-bold text-sm mb-3">Download Receipt</button>
-                    <button onclick="document.getElementById('modal-pay').classList.add('hidden')" class="text-xs text-gray-400">Close</button>
-                </div>
+                <button onclick="downloadReceipt()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 mb-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> Save Receipt
+                </button>
+                <button onclick="closeModal('receipt-modal'); navTo('view-home')" class="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-medium">
+                    Close
+                </button>
             </div>
         </div>
 
-        <!-- RECEIPT -->
-        <div id="receipt-el" class="fixed top-0 left-[-2000px] w-[350px] bg-white p-8 border border-gray-100">
-            <div class="text-center border-b border-gray-100 pb-4 mb-4">
-                <h1 class="font-bold text-lg tracking-widest uppercase">SAUKI MART</h1>
-                <p class="text-[10px] text-gray-400">Certified Data Vendor</p>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div class="flex justify-between"><span>Date</span><span class="font-bold" id="rec-date"></span></div>
-                <div class="flex justify-between"><span>Ref</span><span class="font-mono" id="rec-ref"></span></div>
-                <div class="flex justify-between"><span>Item</span><span class="font-bold" id="rec-item"></span></div>
-                <div class="flex justify-between"><span>Amount</span><span class="font-bold" id="rec-amt"></span></div>
-            </div>
-            <div class="mt-6 text-center">
-                <p class="text-[9px] text-gray-400">saukidatalinks@gmail.com • 08164135836</p>
-            </div>
-        </div>
     </div>
 
+    <!-- APP LOGIC -->
     <script>
-        const API = '/api';
-        let currentNet = 1;
+        // --- CONSTANTS ---
+        const API_BASE = '/api'; // Relative path for Vercel
+        const NETWORK_MTN = 1;
+        const NETWORK_GLO = 2;
 
-        function nav(id) {
-            document.querySelectorAll('.content-area').forEach(e => e.classList.remove('active'));
-            document.getElementById(`view-${id}`).classList.add('active');
-            if(id === 'data') loadPlans(1);
-            if(id === 'devices') loadProducts();
-        }
+        // --- STATE ---
+        let currentView = 'view-home';
+        let viewHistory = [];
+        let selectedNetwork = NETWORK_MTN;
+        let selectedPlan = null;
+        let currentTxRef = null;
+        let adminToken = null;
 
-        async function loadPlans(netId) {
-            currentNet = netId;
-            const list = document.getElementById('plans-list');
-            list.innerHTML = "Loading...";
-            try {
-                const res = await fetch(`${API}/plans`);
-                const plans = await res.json();
-                list.innerHTML = "";
-                plans.filter(p => p.network === netId).forEach(p => {
-                    list.innerHTML += `
-                        <div onclick="buyItem('data', ${p.price}, ${p.planId}, '${p.name}')" class="ios-card p-4 flex justify-between items-center cursor-pointer">
-                            <div><span class="font-bold text-sm block">${p.name}</span><span class="text-[10px] text-gray-400">30 Days</span></div>
-                            <span class="bg-black text-white text-xs font-bold px-3 py-1.5 rounded-lg">₦${p.price}</span>
-                        </div>`;
-                });
-            } catch(e) { list.innerHTML = "Error loading plans."; }
-        }
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            fetchPlans();
+            fetchProducts();
+        });
 
-        async function loadProducts() {
-            const list = document.getElementById('products-list');
-            const res = await fetch(`${API}/products`);
-            const prods = await res.json();
-            list.innerHTML = "";
-            prods.forEach(p => {
-                list.innerHTML += `
-                    <div onclick="buyItem('device', ${p.price}, ${p.id}, '${p.name}')" class="ios-card p-4">
-                        <div class="h-24 bg-gray-50 rounded-lg mb-2 flex items-center justify-center text-xs text-gray-400 font-bold">${p.name}</div>
-                        <h3 class="font-bold text-sm">${p.name}</h3>
-                        <p class="text-xs font-bold mt-1">₦${p.price}</p>
-                    </div>`;
-            });
-        }
-
-        async function buyItem(type, amount, id, name) {
-            const phone = prompt("Enter Beneficiary Phone:");
-            if(!phone) return;
+        // --- NAVIGATION ---
+        function navTo(viewId) {
+            if (viewId === currentView) return;
             
-            try {
-                // 1. Init with Error Handling
-                const res = await fetch(`${API}/buy/init`, {
-                    method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({ amount, phone, type, planId: type==='data'?id:null, productId: type==='device'?id:null, productName: name, networkId: currentNet })
-                });
-                
-                const tx = await res.json();
-                
-                if (!res.ok) {
-                    throw new Error(tx.error || "Initialization failed");
-                }
+            const current = document.getElementById(currentView);
+            const next = document.getElementById(viewId);
 
-                // 2. FLW
-                FlutterwaveCheckout({
-                    public_key: "FLWPUBK_TEST-SANDBOXDEMO", tx_ref: tx.reference, amount, currency: "NGN",
-                    payment_options: "card,banktransfer", customer: { email: "user@sauki.com", phone_number: phone, name: "Sauki User" },
-                    customizations: { title: "Sauki Mart", description: name, logo: "https://sauki-mart.vercel.app/logo.png" },
-                    callback: function(data) { verify(tx.reference, amount, name); }, onclose: function() {}
-                });
-            } catch (e) {
-                alert("Order Error: " + e.message);
-                console.error(e);
+            // Push state for back button
+            viewHistory.push(currentView);
+
+            // Animate
+            current.classList.add('exit-left');
+            current.classList.remove('active');
+
+            next.classList.add('active');
+            
+            setTimeout(() => {
+                current.classList.remove('exit-left'); // Reset pos after hidden
+            }, 400);
+
+            currentView = viewId;
+        }
+
+        function navBack() {
+            if (viewHistory.length === 0) return;
+            const prevId = viewHistory.pop();
+            
+            const current = document.getElementById(currentView);
+            const prev = document.getElementById(prevId);
+
+            current.classList.remove('active'); // Slide out right naturally
+            current.style.transform = 'translateX(100%)';
+            
+            prev.classList.add('active');
+            
+            setTimeout(() => {
+                current.style.transform = ''; // Reset inline style
+            }, 400);
+
+            currentView = prevId;
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function showLoader(show) {
+            document.getElementById('loader').style.display = show ? 'flex' : 'none';
+        }
+
+        function toast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.classList.remove('opacity-0', 'translate-y-[-20px]');
+            setTimeout(() => {
+                t.classList.add('opacity-0', 'translate-y-[-20px]');
+            }, 3000);
+        }
+
+        // --- DATA BUYING LOGIC ---
+        function selectNetwork(netId) {
+            selectedNetwork = netId;
+            // Update UI
+            const mtnBtn = document.getElementById('btn-net-mtn');
+            const gloBtn = document.getElementById('btn-net-glo');
+            
+            if(netId === 1) {
+                mtnBtn.classList.replace('border-gray-200', 'border-yellow-400');
+                mtnBtn.classList.replace('bg-white', 'bg-yellow-50');
+                mtnBtn.classList.remove('grayscale', 'opacity-60');
+                mtnBtn.classList.add('ring-2');
+                
+                gloBtn.classList.add('grayscale', 'opacity-60');
+                gloBtn.classList.remove('ring-2');
+                gloBtn.classList.replace('border-yellow-400', 'border-gray-200');
+            } else {
+                gloBtn.classList.replace('border-gray-200', 'border-green-500');
+                gloBtn.classList.remove('grayscale', 'opacity-60');
+                gloBtn.classList.add('ring-2');
+
+                mtnBtn.classList.add('grayscale', 'opacity-60');
+                mtnBtn.classList.remove('ring-2');
+            }
+            renderPlans();
+        }
+
+        let allPlans = [];
+        async function fetchPlans() {
+            try {
+                const res = await fetch(`${API_BASE}/plans`);
+                allPlans = await res.json();
+                renderPlans();
+            } catch(e) { console.error("Plan Error", e); }
+        }
+
+        function renderPlans() {
+            const container = document.getElementById('plan-list');
+            container.innerHTML = '';
+            
+            const filtered = allPlans.filter(p => p.networkId === selectedNetwork); // Assuming API returns networkId as int
+            
+            if(filtered.length === 0) {
+                // Fallback / Mock if DB empty for demo
+                const mocks = selectedNetwork === 1 
+                    ? [{id:1001, name:'1GB SME', price:429}, {id:6666, name:'2GB SME', price:849}]
+                    : [{id:206, name:'1GB Corp', price:399}];
+                
+                mocks.forEach(p => appendPlanCard(p, container));
+            } else {
+                filtered.forEach(p => appendPlanCard(p, container));
             }
         }
 
-        async function verify(ref, amt, item) {
-            const modal = document.getElementById('modal-pay');
-            modal.classList.remove('hidden');
-            document.getElementById('rec-date').innerText = new Date().toLocaleDateString();
-            document.getElementById('rec-ref').innerText = ref;
-            document.getElementById('rec-item').innerText = item;
-            document.getElementById('rec-amt').innerText = "₦" + amt;
+        function appendPlanCard(p, container) {
+            const div = document.createElement('div');
+            div.className = "flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:border-black transition-colors";
+            div.innerHTML = `
+                <div>
+                    <p class="font-bold text-gray-800">${p.name}</p>
+                    <p class="text-[10px] text-gray-500">30 Days Validity</p>
+                </div>
+                <div class="text-right">
+                    <p class="font-bold text-sm">₦${p.price}</p>
+                </div>
+            `;
+            div.onclick = () => initiateDataPurchase(p);
+            container.appendChild(div);
+        }
 
-            setTimeout(async () => {
-                document.getElementById('stg-1').classList.add('opacity-30');
-                document.getElementById('ldr-1').classList.remove('animate-spin'); document.getElementById('ldr-1').classList.add('bg-green-500', 'border-none');
-                
-                document.getElementById('stg-2').classList.remove('opacity-30'); document.getElementById('ldr-2').classList.add('animate-spin', 'border-t-black');
+        async function initiateDataPurchase(plan) {
+            const phone = document.getElementById('data-phone').value;
+            if(phone.length < 10) return toast("Enter valid phone number");
 
-                const res = await fetch(`${API}/buy/verify`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reference: ref }) });
+            selectedPlan = plan;
+            showLoader(true);
+
+            try {
+                const res = await fetch(`${API_BASE}/buy/init`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        amount: plan.price,
+                        phone: phone,
+                        type: 'data',
+                        networkId: selectedNetwork,
+                        planId: plan.id || plan.planId, // Handle both DB and Mock structure
+                        productName: `${selectedNetwork === 1 ? 'MTN' : 'Glo'} ${plan.name}`
+                    })
+                });
                 const data = await res.json();
-
-                document.getElementById('ldr-2').classList.remove('animate-spin');
-                if(data.delivery) {
-                    document.getElementById('ldr-2').classList.add('bg-green-500', 'border-none');
-                    document.getElementById('pay-success').classList.remove('hidden');
-                } else { alert("Delivery Pending. Check Admin."); modal.classList.add('hidden'); }
-            }, 1000);
+                
+                if(data.success) {
+                    currentTxRef = data.reference;
+                    // Show Payment Modal
+                    document.getElementById('pay-amt').innerText = `₦${plan.price}`;
+                    // Mock Account Number for Demo (In real app, get from API response)
+                    document.getElementById('pay-acc').innerText = "99" + phone.substring(3); 
+                    
+                    document.getElementById('payment-modal').classList.remove('hidden');
+                } else {
+                    toast("Failed to init: " + (data.error || "Unknown"));
+                }
+            } catch(e) {
+                toast("Connection Error");
+            } finally {
+                showLoader(false);
+            }
         }
 
-        async function trackOrder() {
-            const p = document.getElementById('track-input').value;
-            const res = await fetch(`${API}/track/${p}`);
-            const txs = await res.json();
-            const div = document.getElementById('track-results');
-            div.innerHTML = "";
-            txs.forEach(t => {
-                div.innerHTML += `<div class="bg-white p-2 rounded-lg text-[10px] mb-1 border border-gray-100 flex justify-between">
-                    <span>${t.status.toUpperCase()}</span><span>₦${t.amount}</span>
-                </div>`;
+        async function confirmPayment() {
+            if(!currentTxRef) return;
+            showLoader(true);
+            
+            try {
+                const res = await fetch(`${API_BASE}/buy/verify`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ reference: currentTxRef })
+                });
+                const data = await res.json();
+                
+                if(data.payment && data.delivery) {
+                    closeModal('payment-modal');
+                    showReceipt(data.tx);
+                } else {
+                    toast("Payment not confirmed yet. Retrying...");
+                    // Simple retry logic could go here
+                }
+            } catch(e) {
+                toast("Verification Error");
+            } finally {
+                showLoader(false);
+            }
+        }
+
+        // --- RECEIPT & TRACKING ---
+        function showReceipt(tx) {
+            document.getElementById('receipt-modal').classList.remove('hidden');
+            document.getElementById('rcpt-status').innerText = "SUCCESS";
+            document.getElementById('rcpt-ref').innerText = tx.reference;
+            document.getElementById('rcpt-date').innerText = new Date().toLocaleDateString();
+            document.getElementById('rcpt-item').innerText = tx.productName || tx.planName || "Data Plan";
+            document.getElementById('rcpt-amt').innerText = `₦${tx.amount}`;
+        }
+
+        async function downloadReceipt() {
+            const element = document.getElementById('receipt-content');
+            const canvas = await html2canvas(element);
+            const imgData = canvas.toDataURL('image/png');
+            
+            const link = document.createElement('a');
+            link.href = imgData;
+            link.download = `Receipt-${Date.now()}.png`;
+            link.click();
+        }
+
+        async function fetchHistory() {
+            const phone = document.getElementById('track-phone').value;
+            if(phone.length < 10) return toast("Enter valid phone");
+            
+            showLoader(true);
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+
+            try {
+                const res = await fetch(`${API_BASE}/track/${phone}`);
+                const txs = await res.json();
+                
+                if(txs.length === 0) list.innerHTML = '<div class="text-center text-xs">No transactions found.</div>';
+
+                txs.forEach(tx => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm";
+                    div.innerHTML = `
+                        <div>
+                            <p class="font-bold">${tx.productName || 'Purchase'}</p>
+                            <p class="text-[10px] text-gray-500">${new Date(tx.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="px-2 py-1 rounded text-[10px] font-bold uppercase ${tx.status === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${tx.status}</span>
+                        </div>
+                    `;
+                    div.onclick = () => { if(tx.status === 'delivered') showReceipt(tx); };
+                    list.appendChild(div);
+                });
+            } catch(e) { toast("Error fetching history"); }
+            finally { showLoader(false); }
+        }
+
+        // --- SHOP & ADMIN (Skeleton for demo) ---
+        async function fetchProducts() {
+            // Populate shop view similar to plans
+        }
+
+        async function adminLogin() {
+            const u = document.getElementById('admin-user').value;
+            const p = document.getElementById('admin-pass').value;
+            
+            try {
+                const res = await fetch(`${API_BASE}/admin/login`, {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({u,p})
+                });
+                const d = await res.json();
+                if(d.success) {
+                    adminToken = d.token;
+                    document.getElementById('admin-login').classList.add('hidden');
+                    document.getElementById('admin-dash').classList.remove('hidden');
+                    loadAdminTxs();
+                } else {
+                    toast("Invalid Admin Credentials");
+                }
+            } catch(e) { toast("Login Error"); }
+        }
+
+        async function loadAdminTxs() {
+            if(!adminToken) return;
+            const res = await fetch(`${API_BASE}/admin/transactions`, {
+                headers: { 'Authorization': adminToken }
             });
+            const txs = await res.json();
+            const list = document.getElementById('admin-tx-list');
+            list.innerHTML = txs.map(t => `
+                <div class="flex justify-between border-b border-gray-800 pb-2">
+                    <span>${t.customerPhone}</span>
+                    <span class="${t.status === 'delivered' ? 'text-green-400' : 'text-red-400'}">${t.status}</span>
+                </div>
+            `).join('');
         }
 
-        function downloadReceipt() {
-             html2canvas(document.getElementById('receipt-el')).then(c => {
-                 const a = document.createElement('a'); a.download="Sauki-Rec.png"; a.href=c.toDataURL(); a.click();
-             });
-        }
-
-        lucide.createIcons();
     </script>
 </body>
-    </html>
+</html>
+
