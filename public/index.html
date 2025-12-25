@@ -15,7 +15,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-    <!-- Google Fonts (Inter for that clean Apple look) -->
+    <!-- Google Fonts (Inter) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
@@ -25,6 +25,7 @@
             background-color: #fafafa; /* neutral-50 */
             -webkit-tap-highlight-color: transparent;
             overflow: hidden; /* Prevent body scroll */
+            touch-action: pan-x pan-y;
         }
         
         /* Hide Scrollbar but allow scroll */
@@ -67,54 +68,57 @@
 
         /* Glassmorphism */
         .glass {
-            background: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(0,0,0,0.05);
         }
 
-        /* Door Card Hover Lift */
+        /* Interactions */
         .door-card {
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .door-card:active {
+            transform: scale(0.96);
+        }
+        
+        .btn-press:active {
             transform: scale(0.98);
         }
     </style>
 </head>
-<body class="text-gray-800">
+<body class="text-gray-800 antialiased select-none">
 
     <!-- APP CONTAINER -->
     <div id="app" class="relative w-full h-screen overflow-hidden max-w-md mx-auto bg-white shadow-2xl sm:rounded-3xl sm:h-[90vh] sm:mt-[5vh] sm:border sm:border-gray-100">
 
         <!-- NOTIFICATION TOAST -->
-        <div id="toast" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-lg z-50 text-sm font-medium transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none flex items-center gap-2">
-            <i data-lucide="info" class="w-4 h-4"></i>
+        <div id="toast" class="absolute top-6 left-1/2 transform -translate-x-1/2 bg-gray-900/95 backdrop-blur text-white px-6 py-3 rounded-full shadow-xl z-[60] text-sm font-medium transition-all duration-300 opacity-0 translate-y-[-40px] pointer-events-none flex items-center gap-2 w-max max-w-[90%]">
+            <i data-lucide="info" class="w-4 h-4 text-blue-400"></i>
             <span id="toast-msg">Notification</span>
         </div>
 
         <!-- LOADING OVERLAY -->
-        <div id="loader" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 hidden flex-col items-center justify-center">
-            <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900"></div>
-            <p class="mt-4 text-sm font-medium text-gray-500">Processing...</p>
+        <div id="loader" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-[70] hidden flex-col items-center justify-center transition-opacity duration-300">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+            <p class="text-sm font-semibold text-gray-600 tracking-wide animate-pulse">Processing Securely...</p>
         </div>
 
         <!-- ======================= 1. HOME VIEW ======================= -->
-        <div id="view-home" class="view active no-scrollbar p-6 flex flex-col h-full">
+        <div id="view-home" class="view active no-scrollbar p-6 flex flex-col h-full bg-gray-50/50">
             <!-- Header -->
-            <div class="mt-4 mb-6 flex flex-col items-center text-center animate-fade-in">
-                <!-- Placeholder for logo.png -->
-                <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-                    <img src="/logo.png" onerror="this.src='https://placehold.co/100x100?text=SM'" alt="Logo" class="w-12 h-12 object-contain opacity-80">
+            <div class="mt-6 mb-8 flex flex-col items-center text-center">
+                <!-- Logo -->
+                <div class="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-5 shadow-sm border border-gray-100">
+                    <img src="/logo.png" onerror="this.src='https://placehold.co/100x100?text=SM'" alt="Logo" class="w-14 h-14 object-contain opacity-90">
                 </div>
-                <h1 class="text-2xl font-bold tracking-tight text-gray-900">Welcome to Sauki Mart</h1>
-                <p class="text-xs text-gray-500 mt-2 px-4 leading-relaxed">
-                    Premium MTN routers, SIMs, and affordable data plans. <br>
-                    Delivered nationwide in 24–48 hours.
+                <h1 class="text-2xl font-bold tracking-tight text-gray-900">Sauki Mart</h1>
+                <p class="text-xs text-gray-500 mt-2 px-4 leading-relaxed font-medium">
+                    Premium Data, Routers & SIMs.<br>
+                    <span class="text-gray-400">Swift Delivery • Secure Payments</span>
                 </p>
-                <div class="flex items-center gap-2 mt-3">
-                     <span class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-wider">SMEDAN Certified</span>
-                     <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full uppercase tracking-wider">Free Delivery</span>
+                <div class="flex items-center gap-2 mt-4">
+                     <span class="px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-full border border-green-100 uppercase tracking-wider">SMEDAN Certified</span>
                 </div>
             </div>
 
@@ -122,92 +126,99 @@
             <div class="grid grid-cols-2 gap-4 flex-1 content-start">
                 
                 <!-- Door 1: Shop Devices -->
-                <div onclick="navTo('view-shop')" class="door-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-40 border border-gray-100 shadow-sm cursor-pointer hover:bg-white hover:shadow-md">
-                    <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-3 text-orange-600">
-                        <i data-lucide="shopping-bag"></i>
+                <div onclick="navTo('view-shop')" class="door-card bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center h-44 border border-gray-100 shadow-sm cursor-pointer relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-orange-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="w-14 h-14 bg-orange-50 rounded-full flex items-center justify-center mb-3 text-orange-500 relative z-10">
+                        <i data-lucide="shopping-bag" class="w-6 h-6"></i>
                     </div>
-                    <h3 class="font-semibold text-sm">Shop Devices</h3>
-                    <p class="text-[10px] text-gray-400 mt-1">Routers & SIMs</p>
+                    <h3 class="font-bold text-sm text-gray-800 relative z-10">Shop Devices</h3>
+                    <p class="text-[10px] text-gray-400 mt-1 relative z-10">Routers & SIMs</p>
                 </div>
 
                 <!-- Door 2: Buy Data -->
-                <div onclick="navTo('view-data')" class="door-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-40 border border-gray-100 shadow-sm cursor-pointer hover:bg-white hover:shadow-md">
-                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3 text-blue-600">
-                        <i data-lucide="wifi"></i>
+                <div onclick="navTo('view-data')" class="door-card bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center h-44 border border-gray-100 shadow-sm cursor-pointer relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-3 text-blue-600 relative z-10">
+                        <i data-lucide="wifi" class="w-6 h-6"></i>
                     </div>
-                    <h3 class="font-semibold text-sm">Buy Data</h3>
-                    <p class="text-[10px] text-gray-400 mt-1">MTN & Glo Plans</p>
+                    <h3 class="font-bold text-sm text-gray-800 relative z-10">Buy Data</h3>
+                    <p class="text-[10px] text-gray-400 mt-1 relative z-10">Instant Delivery</p>
                 </div>
 
                 <!-- Door 3: Agent -->
-                <div onclick="navTo('view-agent')" class="door-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-40 border border-gray-100 shadow-sm cursor-pointer hover:bg-white hover:shadow-md">
-                    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 text-purple-600">
-                        <i data-lucide="users"></i>
+                <div onclick="navTo('view-agent')" class="door-card bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center h-44 border border-gray-100 shadow-sm cursor-pointer relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-purple-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="w-14 h-14 bg-purple-50 rounded-full flex items-center justify-center mb-3 text-purple-600 relative z-10">
+                        <i data-lucide="users" class="w-6 h-6"></i>
                     </div>
-                    <h3 class="font-semibold text-sm">Become Agent</h3>
-                    <p class="text-[10px] text-gray-400 mt-1">Earn Commissions</p>
+                    <h3 class="font-bold text-sm text-gray-800 relative z-10">Become Agent</h3>
+                    <p class="text-[10px] text-gray-400 mt-1 relative z-10">Partner with Us</p>
                 </div>
 
                 <!-- Door 4: Track -->
-                <div onclick="navTo('view-track')" class="door-card bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center h-40 border border-gray-100 shadow-sm cursor-pointer hover:bg-white hover:shadow-md">
-                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3 text-green-600">
-                        <i data-lucide="search"></i>
+                <div onclick="navTo('view-track')" class="door-card bg-white rounded-3xl p-5 flex flex-col items-center justify-center text-center h-44 border border-gray-100 shadow-sm cursor-pointer relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-gradient-to-br from-green-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mb-3 text-green-600 relative z-10">
+                        <i data-lucide="search" class="w-6 h-6"></i>
                     </div>
-                    <h3 class="font-semibold text-sm">Track Order</h3>
-                    <p class="text-[10px] text-gray-400 mt-1">Status & Receipts</p>
+                    <h3 class="font-bold text-sm text-gray-800 relative z-10">Track Order</h3>
+                    <p class="text-[10px] text-gray-400 mt-1 relative z-10">Check Status</p>
                 </div>
             </div>
 
             <!-- Footer -->
-            <div class="mt-auto pt-6 pb-2 flex flex-col items-center opacity-60">
-                <div class="flex gap-4 mb-2 grayscale">
-                    <!-- Placeholders for coat.png, smedan.png -->
-                     <img src="/coat.png" onerror="this.style.display='none'" class="h-6 object-contain">
-                     <img src="/smedan.png" onerror="this.style.display='none'" class="h-6 object-contain">
+            <div class="mt-auto pt-8 pb-4 flex flex-col items-center opacity-60">
+                <div class="flex gap-4 mb-3 grayscale mix-blend-multiply">
+                     <img src="/coat.png" onerror="this.style.display='none'" class="h-8 object-contain">
+                     <img src="/smedan.png" onerror="this.style.display='none'" class="h-8 object-contain">
                 </div>
-                <p class="text-[10px] text-gray-400">Support: saukidatalinks@gmail.com</p>
-                <div onclick="navTo('view-admin')" class="mt-2 text-[9px] text-gray-300 uppercase tracking-widest cursor-pointer">Admin Login</div>
+                <p class="text-[10px] text-gray-400 font-medium">Support: saukidatalinks@gmail.com</p>
+                <div onclick="navTo('view-admin')" class="mt-4 px-4 py-2 text-[9px] text-gray-300 uppercase tracking-widest cursor-pointer hover:text-gray-500 transition-colors">Admin Login</div>
             </div>
         </div>
 
         <!-- ======================= 2. DATA VIEW ======================= -->
         <div id="view-data" class="view no-scrollbar bg-white">
             <!-- Header -->
-            <div class="glass sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
-                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                <h2 class="font-semibold text-sm">Buy Mobile Data</h2>
-                <div class="w-8"></div> <!-- Spacer -->
+            <div class="glass sticky top-0 z-30 px-6 py-5 flex items-center justify-between">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-50 transition-colors btn-press"><i data-lucide="chevron-left" class="w-6 h-6 text-gray-700"></i></button>
+                <h2 class="font-bold text-base text-gray-800">Buy Mobile Data</h2>
+                <div class="w-8"></div>
             </div>
 
-            <div class="p-6">
+            <div class="p-6 pb-24">
                 <!-- Network Selector -->
-                <div class="flex gap-3 mb-6">
-                    <button onclick="selectNetwork(1)" id="btn-net-mtn" class="flex-1 py-4 border-2 border-yellow-400 bg-yellow-50 rounded-2xl flex flex-col items-center justify-center transition-all ring-2 ring-offset-1 ring-transparent">
-                        <span class="font-bold text-gray-800">MTN</span>
-                        <span class="text-[10px] text-gray-500">SME & Direct</span>
+                <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider pl-1">Select Network</label>
+                <div class="flex gap-4 mb-8">
+                    <button onclick="selectNetwork(1)" id="btn-net-mtn" class="flex-1 h-24 border-2 border-yellow-400 bg-yellow-50 rounded-2xl flex flex-col items-center justify-center transition-all shadow-sm ring-2 ring-offset-2 ring-transparent btn-press relative overflow-hidden">
+                        <div class="w-full h-1 bg-yellow-400 absolute top-0"></div>
+                        <span class="font-bold text-lg text-gray-900">MTN</span>
+                        <span class="text-[10px] text-gray-600 mt-1">SME & Direct</span>
                     </button>
-                    <button onclick="selectNetwork(2)" id="btn-net-glo" class="flex-1 py-4 border border-gray-200 bg-white rounded-2xl flex flex-col items-center justify-center grayscale opacity-60 transition-all">
-                        <span class="font-bold text-green-700">Glo</span>
-                        <span class="text-[10px] text-gray-500">Corporate</span>
+                    <button onclick="selectNetwork(2)" id="btn-net-glo" class="flex-1 h-24 border border-gray-100 bg-white rounded-2xl flex flex-col items-center justify-center grayscale opacity-60 transition-all shadow-sm btn-press relative overflow-hidden">
+                        <div class="w-full h-1 bg-green-500 absolute top-0"></div>
+                        <span class="font-bold text-lg text-green-700">Glo</span>
+                        <span class="text-[10px] text-gray-400 mt-1">Corporate</span>
                     </button>
                 </div>
 
                 <!-- Input Phone -->
-                <div class="mb-6">
-                    <label class="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Mobile Number</label>
-                    <div class="relative">
-                        <input type="tel" id="data-phone" placeholder="0801 234 5678" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium rounded-xl p-4 pl-12 focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all">
-                        <i data-lucide="smartphone" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                <div class="mb-8">
+                    <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider pl-1">Beneficiary Number</label>
+                    <div class="relative group">
+                        <input type="tel" id="data-phone" placeholder="0801 234 5678" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-xl font-semibold rounded-2xl p-5 pl-14 focus:bg-white focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all placeholder-gray-300">
+                        <i data-lucide="smartphone" class="absolute left-5 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6 group-focus-within:text-black transition-colors"></i>
                     </div>
                 </div>
 
-                <!-- Plan Selector (Populated by JS) -->
-                <label class="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Select Plan</label>
+                <!-- Plan Selector -->
+                <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider pl-1">Choose Plan</label>
                 <div id="plan-list" class="space-y-3">
-                    <!-- Loading State -->
+                    <!-- Loading Skeleton -->
                     <div class="animate-pulse space-y-3">
-                        <div class="h-16 bg-gray-100 rounded-xl"></div>
-                        <div class="h-16 bg-gray-100 rounded-xl"></div>
+                        <div class="h-20 bg-gray-100 rounded-2xl"></div>
+                        <div class="h-20 bg-gray-100 rounded-2xl"></div>
+                        <div class="h-20 bg-gray-100 rounded-2xl"></div>
                     </div>
                 </div>
             </div>
@@ -215,42 +226,45 @@
 
         <!-- ======================= 3. SHOP DEVICES VIEW ======================= -->
         <div id="view-shop" class="view no-scrollbar bg-white">
-            <div class="glass sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
-                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                <h2 class="font-semibold text-sm">Premium Devices</h2>
+            <div class="glass sticky top-0 z-30 px-6 py-5 flex items-center justify-between">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-50 btn-press"><i data-lucide="chevron-left" class="w-6 h-6 text-gray-700"></i></button>
+                <h2 class="font-bold text-base text-gray-800">Premium Devices</h2>
                 <div class="w-8"></div>
             </div>
 
             <div class="p-6">
                 <div id="product-list" class="grid grid-cols-1 gap-6">
-                    <!-- Products injected via JS -->
-                    <div class="text-center text-gray-400 mt-10">Loading products...</div>
+                    <div class="text-center text-gray-400 mt-20 flex flex-col items-center">
+                        <i data-lucide="package-open" class="w-12 h-12 mb-3 opacity-20"></i>
+                        <p class="text-sm">Store is updating...</p>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ======================= 4. TRACK VIEW ======================= -->
         <div id="view-track" class="view no-scrollbar bg-white">
-            <div class="glass sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
-                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                <h2 class="font-semibold text-sm">Track Transaction</h2>
+            <div class="glass sticky top-0 z-30 px-6 py-5 flex items-center justify-between">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-50 btn-press"><i data-lucide="chevron-left" class="w-6 h-6 text-gray-700"></i></button>
+                <h2 class="font-bold text-base text-gray-800">Track Orders</h2>
                 <div class="w-8"></div>
             </div>
 
             <div class="p-6">
-                <div class="mb-6">
-                    <label class="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Enter Phone Number</label>
-                    <div class="flex gap-2">
-                        <input type="tel" id="track-phone" placeholder="0801..." class="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-4 outline-none focus:ring-2 focus:ring-black">
-                        <button onclick="fetchHistory()" class="bg-black text-white px-6 rounded-xl font-medium text-sm hover:bg-gray-800 transition-colors">Track</button>
+                <div class="mb-8">
+                    <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider pl-1">Phone Number</label>
+                    <div class="flex gap-3">
+                        <input type="tel" id="track-phone" placeholder="0801..." class="flex-1 bg-gray-50 border border-gray-200 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all">
+                        <button onclick="fetchHistory()" class="bg-black text-white px-6 rounded-2xl font-bold text-sm hover:bg-gray-800 btn-press transition-transform shadow-lg shadow-gray-200">
+                            Check
+                        </button>
                     </div>
                 </div>
 
                 <div id="history-list" class="space-y-4">
-                    <!-- History injected here -->
-                    <div class="text-center text-gray-400 py-10 flex flex-col items-center">
-                        <i data-lucide="history" class="w-10 h-10 mb-3 opacity-20"></i>
-                        <span class="text-xs">Enter number to see recent orders</span>
+                    <div class="text-center text-gray-400 py-20 flex flex-col items-center">
+                        <i data-lucide="history" class="w-12 h-12 mb-4 opacity-10"></i>
+                        <span class="text-xs font-medium">Enter your number to view recent transactions</span>
                     </div>
                 </div>
             </div>
@@ -258,114 +272,133 @@
 
         <!-- ======================= 5. AGENT VIEW ======================= -->
         <div id="view-agent" class="view no-scrollbar bg-white">
-            <div class="glass sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
-                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                <h2 class="font-semibold text-sm">Agent Portal</h2>
+            <div class="glass sticky top-0 z-30 px-6 py-5 flex items-center justify-between">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-50 btn-press"><i data-lucide="chevron-left" class="w-6 h-6 text-gray-700"></i></button>
+                <h2 class="font-bold text-base text-gray-800">Partner Program</h2>
                 <div class="w-8"></div>
             </div>
 
-            <div class="p-6 flex flex-col items-center justify-center min-h-[60vh] text-center">
-                <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4">
-                    <i data-lucide="crown" class="w-8 h-8"></i>
+            <div class="p-8 flex flex-col items-center justify-center min-h-[60vh] text-center">
+                <div class="w-20 h-20 bg-purple-50 text-purple-600 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-purple-100">
+                    <i data-lucide="crown" class="w-10 h-10"></i>
                 </div>
-                <h3 class="text-lg font-bold">Become a Partner</h3>
-                <p class="text-sm text-gray-500 mt-2 mb-8 max-w-[240px]">Get discounted rates on data and resell to your community. Wallet system coming soon.</p>
+                <h3 class="text-xl font-bold text-gray-900 mb-2">Become a Partner</h3>
+                <p class="text-sm text-gray-500 mb-10 max-w-[260px] leading-relaxed">Unlock exclusive wholesale rates on data and devices. Resell to your community and earn.</p>
                 
-                <button class="w-full bg-black text-white py-4 rounded-xl font-semibold mb-3">Login</button>
-                <button class="w-full bg-gray-100 text-gray-800 py-4 rounded-xl font-semibold">Register Request</button>
+                <button class="w-full bg-black text-white py-4 rounded-2xl font-bold shadow-xl shadow-gray-200 btn-press mb-4">Partner Login</button>
+                <button class="w-full bg-white border border-gray-200 text-gray-800 py-4 rounded-2xl font-bold btn-press">Request Access</button>
             </div>
         </div>
 
         <!-- ======================= ADMIN VIEW ======================= -->
         <div id="view-admin" class="view no-scrollbar bg-gray-900 text-white">
-            <div class="px-6 py-4 flex items-center justify-between border-b border-gray-800">
-                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-800"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                <h2 class="font-semibold text-sm">Admin Console</h2>
+            <div class="px-6 py-5 flex items-center justify-between border-b border-gray-800">
+                <button onclick="navBack()" class="p-2 -ml-2 rounded-full hover:bg-gray-800 btn-press"><i data-lucide="chevron-left" class="w-6 h-6 text-gray-400"></i></button>
+                <h2 class="font-semibold text-sm tracking-wide">ADMIN CONSOLE</h2>
                 <div class="w-8"></div>
             </div>
             
-            <div id="admin-login" class="p-6">
-                <h3 class="text-xl font-bold mb-6">Access Control</h3>
-                <input id="admin-user" type="email" placeholder="Email" class="w-full bg-gray-800 border-none rounded-xl p-4 mb-3 text-white">
-                <input id="admin-pass" type="password" placeholder="Password" class="w-full bg-gray-800 border-none rounded-xl p-4 mb-6 text-white">
-                <button onclick="adminLogin()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold transition-colors">Enter Panel</button>
+            <div id="admin-login" class="p-6 pt-10">
+                <h3 class="text-2xl font-bold mb-8">Restricted Access</h3>
+                <div class="space-y-4">
+                    <input id="admin-user" type="email" placeholder="Admin Email" class="w-full bg-gray-800 border-none rounded-2xl p-4 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500">
+                    <input id="admin-pass" type="password" placeholder="Passcode" class="w-full bg-gray-800 border-none rounded-2xl p-4 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button onclick="adminLogin()" class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold mt-8 transition-colors shadow-lg shadow-blue-900/20 btn-press">Authenticate</button>
             </div>
 
             <div id="admin-dash" class="hidden p-6">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="font-bold">Recent Transactions</h3>
-                    <button onclick="loadAdminTxs()" class="p-2 bg-gray-800 rounded-lg"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                    <h3 class="font-bold text-gray-400 text-xs uppercase tracking-wider">Live Feed</h3>
+                    <button onclick="loadAdminTxs()" class="p-2 bg-gray-800 rounded-xl hover:bg-gray-700 btn-press"><i data-lucide="refresh-cw" class="w-4 h-4 text-white"></i></button>
                 </div>
-                <div id="admin-tx-list" class="space-y-2 text-xs"></div>
+                <div id="admin-tx-list" class="space-y-3"></div>
             </div>
         </div>
 
         <!-- ======================= MODALS ======================= -->
 
-        <!-- Payment Modal -->
-        <div id="payment-modal" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 animate-slide-up shadow-2xl relative">
-                <button onclick="closeModal('payment-modal')" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <!-- Payment Modal (Enhanced for Real Bank Account) -->
+        <div id="payment-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div class="bg-white w-full max-w-sm rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 animate-slide-up shadow-2xl relative">
+                <button onclick="closeModal('payment-modal')" class="absolute top-6 right-6 p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
                 
-                <div class="text-center mb-6">
-                    <div class="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <i data-lucide="credit-card" class="w-6 h-6"></i>
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-100">
+                        <i data-lucide="credit-card" class="w-8 h-8"></i>
                     </div>
-                    <h3 class="font-bold text-lg">Complete Payment</h3>
-                    <p class="text-xs text-gray-500 mt-1">Transfer exact amount to the account below.</p>
+                    <h3 class="font-bold text-xl text-gray-900">Payment Required</h3>
+                    <p class="text-xs text-gray-500 mt-2 px-6">Transfer the <span class="font-bold text-gray-900">EXACT</span> amount to the dedicated account below to complete your order.</p>
                 </div>
 
-                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6 text-center">
-                    <p class="text-[10px] uppercase text-gray-400 tracking-wider mb-1">Bank Name</p>
-                    <p class="font-bold text-gray-800 mb-3">Flutterwave / Wema Bank</p>
+                <div class="bg-gray-50 p-6 rounded-3xl border border-gray-100 mb-8 text-center relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-emerald-600"></div>
                     
-                    <p class="text-[10px] uppercase text-gray-400 tracking-wider mb-1">Account Number</p>
-                    <div class="flex items-center justify-center gap-2 mb-3">
-                        <p class="text-2xl font-mono font-bold tracking-widest" id="pay-acc">9912345678</p>
-                        <i data-lucide="copy" class="w-4 h-4 text-gray-400 cursor-pointer"></i>
+                    <!-- Bank Name -->
+                    <p class="text-[10px] uppercase text-gray-400 font-bold tracking-widest mb-1">Bank Name</p>
+                    <p class="font-bold text-lg text-gray-900 mb-4" id="pay-bank">Loading...</p>
+                    
+                    <!-- Account Number -->
+                    <p class="text-[10px] uppercase text-gray-400 font-bold tracking-widest mb-1">Account Number</p>
+                    <div class="flex items-center justify-center gap-3 mb-5 bg-white py-3 px-4 rounded-xl border border-gray-100 shadow-sm mx-4">
+                        <p class="text-3xl font-mono font-bold tracking-wider text-gray-800" id="pay-acc">...</p>
+                        <i onclick="copyToClipboard('pay-acc')" data-lucide="copy" class="w-5 h-5 text-gray-400 cursor-pointer hover:text-black transition-colors"></i>
                     </div>
 
-                    <p class="text-[10px] uppercase text-gray-400 tracking-wider mb-1">Amount</p>
-                    <p class="text-xl font-bold text-green-600" id="pay-amt">₦0.00</p>
+                    <!-- Amount -->
+                    <p class="text-[10px] uppercase text-gray-400 font-bold tracking-widest mb-1">Total Amount</p>
+                    <p class="text-2xl font-bold text-green-600" id="pay-amt">₦0.00</p>
+                    
+                    <p class="text-[10px] text-gray-400 mt-3" id="pay-name">Beneficiary: Sauki Mart</p>
                 </div>
 
-                <button onclick="confirmPayment()" class="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg transform active:scale-95 transition-all">
-                    I Have Sent the Money
+                <button onclick="confirmPayment()" class="w-full bg-black text-white py-5 rounded-2xl font-bold text-lg shadow-xl shadow-gray-200 btn-press mb-4">
+                    I Have Sent The Money
                 </button>
-                <p class="text-[10px] text-center text-gray-400 mt-3">Automated confirmation. Do not close.</p>
+                <button onclick="closeModal('payment-modal')" class="w-full text-gray-400 text-xs font-medium py-2 hover:text-gray-600">Cancel Transaction</button>
             </div>
         </div>
 
         <!-- Receipt Modal -->
-        <div id="receipt-modal" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
-                <button onclick="closeModal('receipt-modal')" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        <div id="receipt-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative">
                 
                 <!-- Receipt Content to Capture -->
-                <div id="receipt-content" class="bg-white p-4 border border-dashed border-gray-200 rounded-xl mb-4">
-                    <div class="text-center border-b border-gray-100 pb-4 mb-4">
+                <div id="receipt-content" class="bg-white p-6 border border-dashed border-gray-200 rounded-3xl mb-6 relative overflow-hidden">
+                    <!-- Decor -->
+                    <div class="absolute -left-3 -top-3 w-6 h-6 rounded-full bg-gray-100"></div>
+                    <div class="absolute -right-3 -top-3 w-6 h-6 rounded-full bg-gray-100"></div>
+                    
+                    <div class="text-center border-b border-gray-100 pb-6 mb-6">
+                        <div class="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center mx-auto mb-3">
+                            <i data-lucide="check" class="w-6 h-6"></i>
+                        </div>
                         <h3 class="font-bold text-lg uppercase tracking-widest text-gray-900">Sauki Mart</h3>
-                        <p class="text-[10px] text-gray-400">Transaction Receipt</p>
+                        <p class="text-[10px] text-gray-400 font-medium">Official Transaction Receipt</p>
                     </div>
-                    <div class="space-y-3 text-sm">
-    <div class="flex justify-between"><span class="text-gray-500">Status</span> <span class="font-bold text-green-600 uppercase" id="rcpt-status">SUCCESS</span></div>
-                        <div class="flex justify-between"><span class="text-gray-500">Ref</span> <span class="font-mono text-xs text-right" id="rcpt-ref">...</span></div>
-                        <div class="flex justify-between"><span class="text-gray-500">Date</span> <span class="text-right" id="rcpt-date">...</span></div>
-                        <div class="flex justify-between"><span class="text-gray-500">Item</span> <span class="text-right font-medium" id="rcpt-item">...</span></div>
-                        <div class="flex justify-between"><span class="text-gray-500">Amount</span> <span class="font-bold" id="rcpt-amt">...</span></div>
+                    
+                    <div class="space-y-4 text-sm">
+                        <div class="flex justify-between"><span class="text-gray-400 font-medium">Status</span> <span class="font-bold text-green-600 uppercase bg-green-50 px-2 py-0.5 rounded text-xs" id="rcpt-status">SUCCESS</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400 font-medium">Reference</span> <span class="font-mono text-xs text-right text-gray-600" id="rcpt-ref">...</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400 font-medium">Date</span> <span class="text-right text-gray-800 font-medium" id="rcpt-date">...</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400 font-medium">Product</span> <span class="text-right font-bold text-gray-800" id="rcpt-item">...</span></div>
+                        <div class="flex justify-between border-t border-gray-100 pt-3"><span class="text-gray-400 font-medium">Total Paid</span> <span class="font-bold text-lg text-gray-900" id="rcpt-amt">...</span></div>
                     </div>
-                    <div class="mt-6 pt-4 border-t border-gray-100 text-center">
+                    
+                    <div class="mt-8 pt-6 border-t border-gray-100 text-center">
                         <p class="text-[10px] text-gray-400">Thank you for your patronage.</p>
                         <p class="text-[9px] text-gray-300 mt-1">saukidatalinks@gmail.com</p>
                     </div>
                 </div>
 
-                <button onclick="downloadReceipt()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 mb-2">
-                    <i data-lucide="download" class="w-4 h-4"></i> Save Receipt
-                </button>
-                <button onclick="closeModal('receipt-modal'); navTo('view-home')" class="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-medium">
-                    Close
-                </button>
+                <div class="flex gap-3">
+                    <button onclick="downloadReceipt()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 btn-press shadow-lg shadow-blue-100">
+                        <i data-lucide="download" class="w-4 h-4"></i> Save
+                    </button>
+                    <button onclick="closeModal('receipt-modal'); navTo('view-home')" class="flex-1 bg-gray-100 text-gray-800 py-4 rounded-2xl font-bold btn-press">
+                        Done
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -374,7 +407,7 @@
     <!-- APP LOGIC -->
     <script>
         // --- CONSTANTS ---
-        const API_BASE = '/api'; // Relative path for Vercel
+        const API_BASE = '/api'; 
         const NETWORK_MTN = 1;
         const NETWORK_GLO = 2;
 
@@ -385,32 +418,39 @@
         let selectedPlan = null;
         let currentTxRef = null;
         let adminToken = null;
+        let pollingInterval = null;
 
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             fetchPlans();
-            fetchProducts();
+            // Clean up loaders if stuck
+            showLoader(false);
         });
 
         // --- NAVIGATION ---
         function navTo(viewId) {
             if (viewId === currentView) return;
-            
             const current = document.getElementById(currentView);
             const next = document.getElementById(viewId);
 
-            // Push state for back button
             viewHistory.push(currentView);
+            
+            // Animation reset
+            next.style.transition = 'none';
+            next.style.transform = 'translateX(100%)';
+            next.offsetHeight; // Force reflow
+            next.style.transition = '';
 
-            // Animate
             current.classList.add('exit-left');
             current.classList.remove('active');
 
             next.classList.add('active');
+            next.style.transform = 'translateX(0)';
             
             setTimeout(() => {
-                current.classList.remove('exit-left'); // Reset pos after hidden
+                current.classList.remove('exit-left');
+                current.style.transform = 'translateX(100%)';
             }, 400);
 
             currentView = viewId;
@@ -419,24 +459,26 @@
         function navBack() {
             if (viewHistory.length === 0) return;
             const prevId = viewHistory.pop();
-            
             const current = document.getElementById(currentView);
             const prev = document.getElementById(prevId);
 
-            current.classList.remove('active'); // Slide out right naturally
+            current.classList.remove('active');
             current.style.transform = 'translateX(100%)';
             
+            // Bring previous back from left (-30%) to 0
             prev.classList.add('active');
-            
-            setTimeout(() => {
-                current.style.transform = ''; // Reset inline style
-            }, 400);
+            prev.style.transform = 'translateX(0)';
 
             currentView = prevId;
         }
 
         function closeModal(id) {
             document.getElementById(id).classList.add('hidden');
+            if(pollingInterval) clearInterval(pollingInterval);
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
         }
 
         function showLoader(show) {
@@ -446,35 +488,44 @@
         function toast(msg) {
             const t = document.getElementById('toast');
             document.getElementById('toast-msg').innerText = msg;
-            t.classList.remove('opacity-0', 'translate-y-[-20px]');
+            t.classList.remove('opacity-0', 'translate-y-[-40px]');
             setTimeout(() => {
-                t.classList.add('opacity-0', 'translate-y-[-20px]');
+                t.classList.add('opacity-0', 'translate-y-[-40px]');
             }, 3000);
+        }
+
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text).then(() => toast("Copied to clipboard"));
         }
 
         // --- DATA BUYING LOGIC ---
         function selectNetwork(netId) {
             selectedNetwork = netId;
-            // Update UI
             const mtnBtn = document.getElementById('btn-net-mtn');
             const gloBtn = document.getElementById('btn-net-glo');
             
             if(netId === 1) {
+                // Active MTN
                 mtnBtn.classList.replace('border-gray-200', 'border-yellow-400');
                 mtnBtn.classList.replace('bg-white', 'bg-yellow-50');
                 mtnBtn.classList.remove('grayscale', 'opacity-60');
                 mtnBtn.classList.add('ring-2');
                 
+                // Inactive Glo
                 gloBtn.classList.add('grayscale', 'opacity-60');
                 gloBtn.classList.remove('ring-2');
-                gloBtn.classList.replace('border-yellow-400', 'border-gray-200');
+                gloBtn.classList.replace('border-green-500', 'border-gray-100');
             } else {
-                gloBtn.classList.replace('border-gray-200', 'border-green-500');
+                // Active Glo
+                gloBtn.classList.replace('border-gray-100', 'border-green-500');
                 gloBtn.classList.remove('grayscale', 'opacity-60');
                 gloBtn.classList.add('ring-2');
 
+                // Inactive MTN
                 mtnBtn.classList.add('grayscale', 'opacity-60');
                 mtnBtn.classList.remove('ring-2');
+                mtnBtn.classList.replace('border-yellow-400', 'border-gray-200');
             }
             renderPlans();
         }
@@ -492,13 +543,14 @@
             const container = document.getElementById('plan-list');
             container.innerHTML = '';
             
-            const filtered = allPlans.filter(p => p.networkId === selectedNetwork); // Assuming API returns networkId as int
+            // Filter by network
+            const filtered = allPlans.filter(p => p.networkId === selectedNetwork);
             
             if(filtered.length === 0) {
-                // Fallback / Mock if DB empty for demo
+                // Fallback Mock Data for demo if DB is empty
                 const mocks = selectedNetwork === 1 
-                    ? [{id:1001, name:'1GB SME', price:429}, {id:6666, name:'2GB SME', price:849}]
-                    : [{id:206, name:'1GB Corp', price:399}];
+                    ? [{id:1001, name:'1GB SME', price:429, desc:'30 Days'}, {id:6666, name:'2GB SME', price:849, desc:'30 Days'}, {id:1110, name:'5GB SME', price:2100, desc:'30 Days'}]
+                    : [{id:206, name:'1GB Corp', price:399, desc:'30 Days'}, {id:222, name:'2GB Corp', price:799, desc:'30 Days'}];
                 
                 mocks.forEach(p => appendPlanCard(p, container));
             } else {
@@ -508,14 +560,19 @@
 
         function appendPlanCard(p, container) {
             const div = document.createElement('div');
-            div.className = "flex items-center justify-between p-4 bg-gray-50 border border-gray-100 rounded-xl cursor-pointer hover:border-black transition-colors";
+            div.className = "flex items-center justify-between p-5 bg-white border border-gray-100 rounded-2xl cursor-pointer hover:border-black hover:shadow-md transition-all btn-press group";
             div.innerHTML = `
-                <div>
-                    <p class="font-bold text-gray-800">${p.name}</p>
-                    <p class="text-[10px] text-gray-500">30 Days Validity</p>
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full ${selectedNetwork === 1 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'} flex items-center justify-center font-bold text-xs">
+                        ${p.name.split(' ')[0]}
+                    </div>
+                    <div>
+                        <p class="font-bold text-gray-900">${p.name}</p>
+                        <p class="text-[10px] text-gray-500 font-medium">30 Days Validity</p>
+                    </div>
                 </div>
                 <div class="text-right">
-                    <p class="font-bold text-sm">₦${p.price}</p>
+                    <p class="font-bold text-base text-gray-900 group-hover:text-blue-600 transition-colors">₦${p.price}</p>
                 </div>
             `;
             div.onclick = () => initiateDataPurchase(p);
@@ -530,6 +587,7 @@
             showLoader(true);
 
             try {
+                // Call API to init purchase and get REAL Bank Account
                 const res = await fetch(`${API_BASE}/buy/init`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -538,7 +596,7 @@
                         phone: phone,
                         type: 'data',
                         networkId: selectedNetwork,
-                        planId: plan.id || plan.planId, // Handle both DB and Mock structure
+                        planId: plan.id || plan.planId,
                         productName: `${selectedNetwork === 1 ? 'MTN' : 'Glo'} ${plan.name}`
                     })
                 });
@@ -546,24 +604,29 @@
                 
                 if(data.success) {
                     currentTxRef = data.reference;
-                    // Show Payment Modal
-                    document.getElementById('pay-amt').innerText = `₦${plan.price}`;
-                    // Mock Account Number for Demo (In real app, get from API response)
-                    document.getElementById('pay-acc').innerText = "99" + phone.substring(3); 
                     
-                    document.getElementById('payment-modal').classList.remove('hidden');
+                    // POPULATE MODAL WITH REAL FLUTTERWAVE ACCOUNT DATA
+                    document.getElementById('pay-bank').innerText = data.bankName || "Unknown Bank";
+                    document.getElementById('pay-acc').innerText = data.accountNumber || "ERROR";
+                    document.getElementById('pay-amt').innerText = `₦${data.payableAmount || plan.price}`;
+                    document.getElementById('pay-name').innerText = `Ref: ${data.reference.substring(0,8)}...`; 
+
+                    openModal('payment-modal');
                 } else {
-                    toast("Failed to init: " + (data.error || "Unknown"));
+                    toast("Failed: " + (data.error || "System Error"));
                 }
             } catch(e) {
-                toast("Connection Error");
+                toast("Connection Error. Check internet.");
+                console.error(e);
             } finally {
                 showLoader(false);
             }
         }
 
+        // --- PAYMENT VERIFICATION ---
         async function confirmPayment() {
             if(!currentTxRef) return;
+            
             showLoader(true);
             
             try {
@@ -574,12 +637,18 @@
                 });
                 const data = await res.json();
                 
+                // Logic based on API response scenarios
                 if(data.payment && data.delivery) {
+                    // Success!
                     closeModal('payment-modal');
                     showReceipt(data.tx);
+                } else if(data.payment && !data.delivery) {
+                    // Paid, but Amigo is slow or failed
+                    toast(data.message || "Payment received! Delivering data...");
+                    // Optional: Poll again in 3s
                 } else {
-                    toast("Payment not confirmed yet. Retrying...");
-                    // Simple retry logic could go here
+                    // Not paid yet
+                    toast("Payment not yet confirmed. Please ensure you sent the exact amount.");
                 }
             } catch(e) {
                 toast("Verification Error");
@@ -590,23 +659,26 @@
 
         // --- RECEIPT & TRACKING ---
         function showReceipt(tx) {
-            document.getElementById('receipt-modal').classList.remove('hidden');
+            openModal('receipt-modal');
             document.getElementById('rcpt-status').innerText = "SUCCESS";
             document.getElementById('rcpt-ref').innerText = tx.reference;
             document.getElementById('rcpt-date').innerText = new Date().toLocaleDateString();
-            document.getElementById('rcpt-item').innerText = tx.productName || tx.planName || "Data Plan";
+            document.getElementById('rcpt-item').innerText = tx.planName || "Data Bundle";
             document.getElementById('rcpt-amt').innerText = `₦${tx.amount}`;
         }
 
         async function downloadReceipt() {
             const element = document.getElementById('receipt-content');
-            const canvas = await html2canvas(element);
+            
+            // Use html2canvas options for better quality
+            const canvas = await html2canvas(element, { scale: 3, backgroundColor: null });
             const imgData = canvas.toDataURL('image/png');
             
             const link = document.createElement('a');
             link.href = imgData;
-            link.download = `Receipt-${Date.now()}.png`;
+            link.download = `SaukiReceipt-${Date.now()}.png`;
             link.click();
+            toast("Receipt Saved to Gallery");
         }
 
         async function fetchHistory() {
@@ -621,36 +693,45 @@
                 const res = await fetch(`${API_BASE}/track/${phone}`);
                 const txs = await res.json();
                 
-                if(txs.length === 0) list.innerHTML = '<div class="text-center text-xs">No transactions found.</div>';
+                if(txs.length === 0) {
+                    list.innerHTML = '<div class="text-center text-xs text-gray-500 py-4">No recent transactions found.</div>';
+                }
 
                 txs.forEach(tx => {
+                    const isSuccess = tx.status === 'delivered';
                     const div = document.createElement('div');
-                    div.className = "flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm";
+                    div.className = "flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100";
                     div.innerHTML = `
-                        <div>
-                            <p class="font-bold">${tx.productName || 'Purchase'}</p>
-                            <p class="text-[10px] text-gray-500">${new Date(tx.createdAt).toLocaleDateString()}</p>
+                        <div class="flex gap-3 items-center">
+                            <div class="w-10 h-10 rounded-full ${isSuccess ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'} flex items-center justify-center">
+                                <i data-lucide="${isSuccess ? 'check' : 'clock'}" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm text-gray-800">${tx.planName || 'Transaction'}</p>
+                                <p class="text-[10px] text-gray-500">${new Date(tx.createdAt).toLocaleDateString()}</p>
+                            </div>
                         </div>
                         <div class="text-right">
-                            <span class="px-2 py-1 rounded text-[10px] font-bold uppercase ${tx.status === 'delivered' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${tx.status}</span>
+                            <span class="text-xs font-bold ${isSuccess ? 'text-green-600' : 'text-yellow-600'} uppercase">${tx.status}</span>
                         </div>
                     `;
-                    div.onclick = () => { if(tx.status === 'delivered') showReceipt(tx); };
+                    // Click to download receipt if delivered
+                    if(isSuccess) {
+                        div.classList.add('cursor-pointer', 'active:scale-95', 'transition-transform');
+                        div.onclick = () => showReceipt(tx);
+                    }
                     list.appendChild(div);
                 });
             } catch(e) { toast("Error fetching history"); }
-            finally { showLoader(false); }
+            finally { showLoader(false); lucide.createIcons(); }
         }
 
-        // --- SHOP & ADMIN (Skeleton for demo) ---
-        async function fetchProducts() {
-            // Populate shop view similar to plans
-        }
-
+        // --- ADMIN LOGIN (Simple) ---
         async function adminLogin() {
             const u = document.getElementById('admin-user').value;
             const p = document.getElementById('admin-pass').value;
             
+            showLoader(true);
             try {
                 const res = await fetch(`${API_BASE}/admin/login`, {
                     method:'POST',
@@ -664,9 +745,10 @@
                     document.getElementById('admin-dash').classList.remove('hidden');
                     loadAdminTxs();
                 } else {
-                    toast("Invalid Admin Credentials");
+                    toast("Invalid Access Credentials");
                 }
             } catch(e) { toast("Login Error"); }
+            finally { showLoader(false); }
         }
 
         async function loadAdminTxs() {
@@ -677,14 +759,33 @@
             const txs = await res.json();
             const list = document.getElementById('admin-tx-list');
             list.innerHTML = txs.map(t => `
-                <div class="flex justify-between border-b border-gray-800 pb-2">
-                    <span>${t.customerPhone}</span>
-                    <span class="${t.status === 'delivered' ? 'text-green-400' : 'text-red-400'}">${t.status}</span>
+                <div class="flex justify-between items-center bg-gray-800 p-3 rounded-xl border border-gray-700 text-xs">
+                    <div>
+                        <div class="font-bold text-white">${t.customerPhone}</div>
+                        <div class="text-gray-500">${t.reference}</div>
+                    </div>
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="${t.status === 'delivered' ? 'text-green-400' : (t.status === 'paid' ? 'text-blue-400' : 'text-red-400')} font-bold uppercase">${t.status}</span>
+                        ${t.status === 'paid' ? `<button onclick="retryTx('${t.id}')" class="px-2 py-1 bg-blue-600 rounded text-white text-[9px]">RETRY</button>` : ''}
+                    </div>
                 </div>
             `).join('');
+        }
+        
+        async function retryTx(id) {
+            if(!confirm("Retry delivery for this transaction?")) return;
+            try {
+                const res = await fetch(`${API_BASE}/admin/retry`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': adminToken },
+                    body: JSON.stringify({id})
+                });
+                const d = await res.json();
+                if(d.success) { toast("Retry Sent!"); loadAdminTxs(); }
+                else toast("Retry Failed: " + d.error);
+            } catch(e) { toast("Network Error"); }
         }
 
     </script>
 </body>
 </html>
-
