@@ -1,0 +1,35 @@
+<div class="max-w-md mx-auto h-full flex flex-col animate-fade-in">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <a href="/" data-link class="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors">
+            <i data-lucide="chevron-left" class="w-6 h-6 text-neutral-600"></i>
+        </a>
+        <h2 class="text-lg font-semibold text-neutral-900">Track Order</h2>
+        <div class="w-10"></div>
+    </div>
+
+    <!-- Search Area -->
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-neutral-100 mb-6">
+        <label class="text-xs font-medium text-neutral-400 uppercase tracking-wide">Phone Number Used</label>
+        <div class="flex gap-2 mt-2">
+            <input type="tel" id="track-phone" placeholder="09012345678" class="flex-1 bg-neutral-50 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+            <button id="btn-track" class="bg-neutral-900 text-white px-4 rounded-xl font-medium">
+                <i data-lucide="search" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Area -->
+    <div class="flex-1 overflow-y-auto pb-10">
+        <h3 class="text-sm font-semibold text-neutral-900 mb-4 ml-2">Recent Transactions</h3>
+        <div id="history-list" class="space-y-3">
+            <!-- Empty State -->
+            <div class="text-center py-10 text-neutral-400 text-sm">
+                Enter your phone number to see history.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="/js/tracking.js"></script>
+
