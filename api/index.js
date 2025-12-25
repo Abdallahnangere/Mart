@@ -9,22 +9,20 @@ const app = express();
 const prisma = new PrismaClient();
 
 // --- CONFIGURATION ---
-const AMIGO_URL = process.env.AMIGO_BASE_URL;
+const AMIGO_URL = 'process.env.AMIGO_BASE_URL;
 const AMIGO_KEY = process.env.AMIGO_API_KEY; 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASS = process.env.ADMIN_PASSWORD;
 
 // Flutterwave Config
-// Ensure FLW_PUBLIC_KEY and FLW_SECRET_KEY are in your .env or Vercel Env Variables
 const flw = new Flutterwave(process.env.FLW_PUBLIC_KEY, process.env.FLW_SECRET_KEY);
-const FLW_HASH = process.env.FLW_HASH; // Set this in your Flutterwave Webhook settings
+const FLW_HASH = process.env.FLW_HASH; 
 
 app.use(cors());
 app.use(express.json());
 
 // --- HELPER: AMIGO DELIVERY ---
 async function deliverData(tx) {
-    // Retrieve technical IDs stored in description
     let meta = {};
     try { meta = JSON.parse(tx.description || '{}'); } catch(e) {}
 
@@ -42,11 +40,10 @@ async function deliverData(tx) {
             headers: { 
                 'X-API-Key': AMIGO_KEY, 
                 'Content-Type': 'application/json', 
-                'Idempotency-Key': tx.id // Safe retry using Transaction ID
+                'Idempotency-Key': tx.id 
             }
         });
         
-        // Update Transaction to Delivered
         await prisma.transaction.update({ 
             where: { id: tx.id }, 
             data: { 
@@ -63,7 +60,7 @@ async function deliverData(tx) {
     }
 }
 
-// --- AUTH MIDDLEWARE ---
+// --- AUTH MIDDLEWARE (For Admin API routes only) ---
 const isAdmin = (req, res, next) => {
     const auth = req.headers['authorization'];
     if (!auth) return res.status(401).json({ error: "No Token" });
@@ -75,16 +72,14 @@ const isAdmin = (req, res, next) => {
 
 // --- ROUTES ---
 
-// 1. INIT PURCHASE (Generates REAL Account Number)
+// 1. INIT PURCHASE (Fixes 'is_permanent' error)
 app.post('/api/buy/init', async (req, res) => {
     console.log("[Init] Request:", req.body);
     const { amount, phone, type, networkId, planId, productId, productName } = req.body;
     
-    // Create unique reference
     const ref = `SAUKI-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const userEmail = `user${phone}@sauki-temp.com`; 
 
-    // Metadata for delivery
     const metadata = {
         networkId: networkId ? Number(networkId) : null,
         planId: planId ? Number(planId) : null,
@@ -92,33 +87,29 @@ app.post('/api/buy/init', async (req, res) => {
     };
 
     try {
-        // A. Call Flutterwave "Pay with Bank Transfer" to get a dynamic account
+        // FIXED: Removed 'is_permanent' which caused the error
         const flwPayload = {
             tx_ref: ref,
-            amount: String(amount), // FLW expects string or number
+            amount: String(amount),
             email: userEmail,
             phone_number: phone,
             currency: "NGN",
             client_ip: req.ip || "127.0.0.1",
             device_fingerprint: "sauki-web-app",
             fullname: "Sauki Customer",
-            is_permanent: false, // This ensures it's a dynamic account for this transaction
             narration: `Sauki ${productName}`
         };
 
-        // This call returns the account details immediately
+        // Generate Dynamic Bank Account
         const flwResponse = await flw.Charge.bank_transfer(flwPayload);
         
-        // Check if FLW returned valid account details
         if (flwResponse.status !== 'success' || !flwResponse.meta || !flwResponse.meta.authorization) {
              console.error("[FLW Error]", flwResponse);
              throw new Error("Could not generate account number from Flutterwave");
         }
 
         const bankDetails = flwResponse.meta.authorization;
-        // Expected: { transfer_account: '...', transfer_bank: '...', transfer_amount: ... }
 
-        // B. Create Database Record
         await prisma.transaction.create({
             data: {
                 reference: ref, 
@@ -132,13 +123,12 @@ app.post('/api/buy/init', async (req, res) => {
             }
         });
         
-        // C. Return REAL Details to Frontend
         res.json({ 
             success: true, 
             reference: ref,
             bankName: bankDetails.transfer_bank,
             accountNumber: bankDetails.transfer_account,
-            accountName: "Sauki Mart", // Usually usually matches merchant name or "FLW-MERCHANT"
+            accountName: "Sauki Mart", 
             payableAmount: bankDetails.transfer_amount
         });
 
@@ -148,84 +138,56 @@ app.post('/api/buy/init', async (req, res) => {
     }
 });
 
-// 2. WEBHOOK (The Brain) - Handles Payment Confirmation
+// 2. WEBHOOK
 app.post('/api/webhook/flw', async (req, res) => {
-    // A. Verify Signature (Security)
     const signature = req.headers['verif-hash'];
-    if (!signature || signature !== FLW_HASH) {
-        console.warn("[Webhook] Invalid Signature");
-        return res.status(401).end();
-    }
+    if (!signature || signature !== FLW_HASH) return res.status(401).end();
 
     const payload = req.body;
     
-    // B. Check for Successful Charge
     if (payload.event === 'charge.completed' && payload.data.status === 'successful') {
         const { tx_ref, amount } = payload.data;
         console.log(`[Webhook] Payment confirmed for ${tx_ref}`);
 
         try {
-            // C. Find Transaction
             const tx = await prisma.transaction.findUnique({ where: { reference: tx_ref } });
             
             if (tx && (tx.status === 'pending' || tx.status === 'failed')) {
-                
-                // D. Check Amount
-                if (parseFloat(amount) < tx.amount) {
-                    console.error("[Webhook] Fraud Alert: Insufficient amount paid");
-                    return res.status(400).end();
-                }
+                if (parseFloat(amount) < tx.amount) return res.status(400).end();
 
-                // E. Mark as Paid
                 await prisma.transaction.update({ 
                     where: { id: tx.id }, 
                     data: { status: 'paid' } 
                 });
 
-                // F. Trigger Delivery (If it's data)
                 if (tx.type === 'data') {
                     await deliverData(tx);
                 }
             }
-        } catch (e) {
-            console.error("[Webhook] Processing Error:", e);
-        }
+        } catch (e) { console.error("[Webhook] Error:", e); }
     }
-
-    res.status(200).end(); // Always acknowledge
+    res.status(200).end(); 
 });
 
-// 3. VERIFY (Frontend Polling)
+// 3. VERIFY
 app.post('/api/buy/verify', async (req, res) => {
     const { reference } = req.body;
     try {
         const tx = await prisma.transaction.findUnique({ where: { reference } });
-        
         if (!tx) return res.status(404).json({ error: "Not Found" });
         
-        // Delivered?
-        if (tx.status === 'delivered') {
-            return res.json({ payment: true, delivery: true, tx });
-        }
+        if (tx.status === 'delivered') return res.json({ payment: true, delivery: true, tx });
         
-        // Paid but not delivered?
         if (tx.status === 'paid') {
-            // Attempt delivery again if it failed previously
-            if(tx.type === 'data' && !tx.amigoResponse) {
-                 await deliverData(tx);
-            }
+            if(tx.type === 'data' && !tx.amigoResponse) await deliverData(tx);
             return res.json({ payment: true, delivery: false, message: "Processing data..." });
         }
-
-        // Still pending
         return res.json({ payment: false, delivery: false });
 
-    } catch (e) {
-        res.status(500).json({ error: "Verification failed" });
-    }
+    } catch (e) { res.status(500).json({ error: "Verification failed" }); }
 });
 
-// --- GETTERS & ADMIN ---
+// --- PUBLIC DATA ---
 app.get('/api/plans', async (req, res) => {
     try {
         const plans = await prisma.dataPlan.findMany({ orderBy: { price: 'asc' }});
@@ -233,11 +195,17 @@ app.get('/api/plans', async (req, res) => {
     } catch (e) { res.status(500).json([]); }
 });
 
+// FIXED: Ensures products can be fetched by frontend
 app.get('/api/products', async (req, res) => {
     try {
-        const prods = await prisma.product.findMany();
+        const prods = await prisma.product.findMany({
+            where: { inStock: true }
+        });
         res.json(prods);
-    } catch (e) { res.status(500).json([]); }
+    } catch (e) { 
+        console.error("Product Fetch Error", e);
+        res.status(500).json([]); 
+    }
 });
 
 app.get('/api/track/:phone', async (req, res) => {
@@ -250,6 +218,8 @@ app.get('/api/track/:phone', async (req, res) => {
     } catch (e) { res.status(500).json([]); }
 });
 
+// --- ADMIN ROUTES (Protected) ---
+// Keep these for your admin.html to use
 app.post('/api/admin/login', (req, res) => {
     const { u, p } = req.body;
     if(u === ADMIN_EMAIL && p === ADMIN_PASS) {
@@ -265,7 +235,6 @@ app.get('/api/admin/transactions', isAdmin, async (req, res) => {
     res.json(txs);
 });
 
-// Admin Retry
 app.post('/api/admin/retry', isAdmin, async (req, res) => {
     const { id } = req.body;
     const tx = await prisma.transaction.findUnique({ where: { id } });
