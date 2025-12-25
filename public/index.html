@@ -5,140 +5,106 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sauki Mart</title>
     
-    <!-- TAILWIND CDN + CONFIGURATION -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 1. FALLBACK CSS (Prevents "Big Image" explosion before JS loads) -->
+    <style>
+        /* Base reset in case JS fails */
+        body { margin: 0; font-family: sans-serif; background-color: #fafafa; }
+        img { max-width: 100%; height: auto; display: block; }
+        /* Prevent horizontal scroll on mobile */
+        html, body { overflow-x: hidden; }
+    </style>
+
+    <!-- 2. TAILWIND CONFIGURATION (Must be defined BEFORE the script) -->
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        neutral: {
-                            50: '#F9FAFB', 100: '#F3F4F6', 200: '#E5E7EB',
-                            300: '#D1D5DB', 400: '#9CA3AF', 500: '#6B7280',
-                            600: '#4B5563', 700: '#374151', 800: '#1F2937', 900: '#111827',
+        window.tailwind = {
+            config: {
+                theme: {
+                    extend: {
+                        colors: {
+                            neutral: {
+                                50: '#F9FAFB', 100: '#F3F4F6', 200: '#E5E7EB',
+                                300: '#D1D5DB', 400: '#9CA3AF', 500: '#6B7280',
+                                600: '#4B5563', 700: '#374151', 800: '#1F2937', 900: '#111827',
+                            },
+                            brand: { blue: '#0071e3' }
                         },
-                        brand: {
-                            blue: '#0071e3', 
-                            dark: '#1d1d1f'
+                        fontFamily: {
+                            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
                         }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-                    },
-                    borderRadius: {
-                        'lg': '0.75rem', 'xl': '1rem', '2xl': '1.5rem', '3xl': '2rem'
                     }
                 }
             }
         }
     </script>
-
+    
+    <!-- 3. LOAD SCRIPTS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        /* Custom Utilities & Animations */
         body { font-family: 'Inter', sans-serif; }
         .door-card { transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.2s ease; }
         .door-card:active { transform: scale(0.96); }
         .fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Safe Area for iOS */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        
+        /* Hide scrollbar for Chrome/Safari/Opera */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden flex flex-col text-neutral-900 select-none">
 
-    <!-- Dynamic Content Container -->
-    <main id="app" class="flex-1 relative overflow-y-auto overflow-x-hidden p-6 pb-32">
-        
-        <!-- Hero Section -->
-        <div class="flex flex-col items-center text-center mt-8 mb-12 fade-in">
-            <div class="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-6">
-                <img src="/logo.png" alt="Logo" class="w-10 h-10 object-contain" onerror="this.style.display='none'">
-                <i data-lucide="zap" class="w-8 h-8 text-blue-600" onerror="this.style.display='block'"></i>
-            </div>
-            <h1 class="text-3xl font-semibold tracking-tight text-neutral-900 mb-2">SAUKI MART</h1>
-            <p class="text-sm text-neutral-500 max-w-xs leading-relaxed">
-                Premium MTN routers, SIMs, and affordable data plans. Delivered nationwide in 24–48 hours • Free Delivery • Government Certified by SMEDAN
-            </p>
+    <!-- DYNAMIC CONTENT CONTAINER -->
+    <!-- The Router will inject views (Home, Data, Devices, etc.) here -->
+    <main id="app" class="flex-1 relative overflow-y-auto overflow-x-hidden p-6 pb-40 no-scrollbar">
+        <!-- Initial Loading State -->
+        <div class="flex flex-col items-center justify-center h-full opacity-50">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-900"></div>
         </div>
-
-        <!-- Door Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto fade-in" style="animation-delay: 0.1s;">
-            
-            <!-- Buy Data -->
-            <a href="/data.html" data-link class="door-card group relative bg-white rounded-3xl p-6 shadow-sm border border-white hover:shadow-md cursor-pointer flex items-center justify-between">
-                <div class="flex flex-col">
-                    <span class="text-lg font-medium text-neutral-900">Buy Data</span>
-                    <span class="text-xs text-neutral-400 mt-1">Instant delivery</span>
-                </div>
-                <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                    <i data-lucide="wifi" class="w-6 h-6 text-blue-600"></i>
-                </div>
-            </a>
-
-            <!-- Shop Devices -->
-            <a href="/devices.html" data-link class="door-card group relative bg-white rounded-3xl p-6 shadow-sm border border-white hover:shadow-md cursor-pointer flex items-center justify-between">
-                <div class="flex flex-col">
-                    <span class="text-lg font-medium text-neutral-900">Shop Devices</span>
-                    <span class="text-xs text-neutral-400 mt-1">Routers & SIMs</span>
-                </div>
-                <div class="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
-                    <i data-lucide="smartphone" class="w-6 h-6 text-orange-600"></i>
-                </div>
-            </a>
-
-            <!-- Become Agent -->
-            <a href="/agent.html" data-link class="door-card group relative bg-white rounded-3xl p-6 shadow-sm border border-white hover:shadow-md cursor-pointer flex items-center justify-between">
-                <div class="flex flex-col">
-                    <span class="text-lg font-medium text-neutral-900">Become an Agent</span>
-                    <span class="text-xs text-neutral-400 mt-1">Earn commissions</span>
-                </div>
-                <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center group-hover:bg-green-100 transition-colors">
-                    <i data-lucide="users" class="w-6 h-6 text-green-600"></i>
-                </div>
-            </a>
-
-            <!-- Track Transaction -->
-            <a href="/tracking.html" data-link class="door-card group relative bg-white rounded-3xl p-6 shadow-sm border border-white hover:shadow-md cursor-pointer flex items-center justify-between">
-                <div class="flex flex-col">
-                    <span class="text-lg font-medium text-neutral-900">Track Order</span>
-                    <span class="text-xs text-neutral-400 mt-1">Check status</span>
-                </div>
-                <div class="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
-                    <i data-lucide="search" class="w-6 h-6 text-purple-600"></i>
-                </div>
-            </a>
-        </div>
-
     </main>
 
-    <!-- Fixed Footer -->
-    <footer class="absolute bottom-0 left-0 w-full bg-white/80 backdrop-blur-md border-t border-neutral-200 pb-safe">
-        <div class="max-w-2xl mx-auto px-6 py-4 flex flex-col items-center gap-4">
+    <!-- FIXED FOOTER -->
+    <footer class="absolute bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-neutral-200 pb-safe z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div class="max-w-2xl mx-auto px-6 py-4 flex flex-col items-center gap-3">
             
-            <!-- Support -->
-            <a href="mailto:saukidatalinks@gmail.com" class="flex items-center gap-2 text-xs font-medium text-neutral-500 hover:text-neutral-800 transition-colors">
-                <i data-lucide="mail" class="w-3 h-3"></i>
-                saukidatalinks@gmail.com
-            </a>
+            <!-- Contact Info -->
+            <div class="flex flex-col items-center gap-1">
+                <a href="mailto:saukidatalinks@gmail.com" class="flex items-center gap-2 text-xs font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+                    <i data-lucide="mail" class="w-3 h-3"></i> saukidatalinks@gmail.com
+                </a>
+                <div class="flex items-center gap-3 text-[10px] font-medium text-neutral-400">
+                    <a href="tel:+2349024099561" class="hover:text-neutral-600 transition-colors flex items-center gap-1">
+                        <i data-lucide="phone" class="w-3 h-3"></i> +234 902 409 9561
+                    </a>
+                    <span class="text-neutral-300">|</span>
+                    <a href="tel:+2349076872520" class="hover:text-neutral-600 transition-colors flex items-center gap-1">
+                        <i data-lucide="phone" class="w-3 h-3"></i> +234 907 687 2520
+                    </a>
+                </div>
+            </div>
 
             <!-- Trust Badges -->
-            <div class="flex items-center gap-4 opacity-80 grayscale hover:grayscale-0 transition-all duration-300">
+            <div class="flex items-center gap-4 opacity-80 grayscale hover:grayscale-0 transition-all duration-300 mt-1">
                 <img src="/coat.png" alt="Nigeria" class="h-6 w-auto object-contain" onerror="this.style.display='none'">
                 <div class="h-3 w-px bg-neutral-300"></div>
                 <img src="/smedan.png" alt="SMEDAN" class="h-6 w-auto object-contain" onerror="this.style.display='none'">
             </div>
             
-            <div class="text-[10px] text-neutral-400">
+            <!-- Copyright -->
+            <div class="text-[10px] text-neutral-400 font-medium">
                 &copy; 2024 Sauki Data Links. Licensed & Regulated.
             </div>
         </div>
     </footer>
 
-    <!-- Scripts -->
+    <!-- APP ENTRY POINT -->
     <script type="module" src="/js/app.js"></script>
 </body>
 </html>
-
 
 
