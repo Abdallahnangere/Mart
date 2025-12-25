@@ -1,0 +1,100 @@
+<div class="max-w-md mx-auto h-full flex flex-col relative animate-fade-in">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <a href="/" data-link class="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors">
+            <i data-lucide="chevron-left" class="w-6 h-6 text-neutral-600"></i>
+        </a>
+        <h2 class="text-lg font-semibold text-neutral-900">Buy Data</h2>
+        <div class="w-10"></div> <!-- Spacer -->
+    </div>
+
+    <!-- Scrollable Content -->
+    <div class="flex-1 overflow-y-auto no-scrollbar pb-32 space-y-6">
+        
+        <!-- Network Selection -->
+        <div class="space-y-3">
+            <label class="text-xs font-medium text-neutral-400 uppercase tracking-wide">Select Network</label>
+            <div class="grid grid-cols-2 gap-3">
+                <button type="button" class="network-btn active group relative flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-transparent bg-yellow-400/10 text-neutral-900 transition-all" data-network="1">
+                    <span class="font-bold text-yellow-600">MTN</span>
+                    <div class="absolute inset-0 border-2 border-yellow-500 rounded-2xl opacity-100 ring-indicator"></div>
+                </button>
+                <button type="button" class="network-btn group relative flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-transparent bg-green-400/10 text-neutral-900 transition-all" data-network="2">
+                    <span class="font-bold text-green-600">GLO</span>
+                    <div class="absolute inset-0 border-2 border-green-500 rounded-2xl opacity-0 ring-indicator"></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Plan Selection -->
+        <div class="space-y-3">
+            <label class="text-xs font-medium text-neutral-400 uppercase tracking-wide">Choose Plan</label>
+            <select id="plan-selector" class="w-full bg-neutral-100 border-none rounded-2xl p-4 text-base focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
+                <option value="" disabled selected>Select a plan...</option>
+                <!-- Populated by JS -->
+            </select>
+        </div>
+
+        <!-- Details Form -->
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs font-medium text-neutral-400 uppercase tracking-wide ml-1">Phone Number</label>
+                <input type="tel" id="phone-input" placeholder="09012345678" class="w-full mt-1 bg-neutral-100 border-none rounded-2xl p-4 text-lg tracking-wide focus:ring-2 focus:ring-blue-500 outline-none placeholder-neutral-400">
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom Action Sheet (Sticky) -->
+    <div class="absolute bottom-0 left-0 right-0 pt-4 pb-8 bg-gradient-to-t from-neutral-50 via-neutral-50 to-transparent">
+        <button id="pay-btn" class="w-full bg-neutral-900 text-white font-medium text-lg py-4 rounded-2xl shadow-lg shadow-neutral-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2">
+            <span>Proceed to Payment</span>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        </button>
+    </div>
+
+    <!-- Payment Modal (Hidden by default) -->
+    <div id="payment-modal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm hidden items-end sm:items-center justify-center animate-fade-in">
+        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-6">
+            <div class="text-center">
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="credit-card" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-neutral-900">Complete Payment</h3>
+                <p class="text-sm text-neutral-500 mt-1">Transfer the exact amount to:</p>
+            </div>
+
+            <div class="bg-neutral-50 rounded-2xl p-5 border border-neutral-100 space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-neutral-400">Bank</span>
+                    <span class="font-medium text-neutral-900" id="bank-name">Loading...</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-neutral-400">Account</span>
+                    <div class="flex items-center gap-2">
+                        <span class="font-mono text-lg font-semibold text-neutral-900" id="account-number">...</span>
+                        <button class="text-blue-600 hover:text-blue-700" onclick="navigator.clipboard.writeText(document.getElementById('account-number').innerText)">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="h-px bg-neutral-200 my-2"></div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-neutral-400">Amount</span>
+                    <span class="font-medium text-green-600 text-lg" id="amount-display">...</span>
+                </div>
+            </div>
+
+            <button id="verify-btn" class="w-full bg-blue-600 text-white font-medium py-4 rounded-2xl active:scale-[0.98] transition-transform">
+                I Have Made The Transfer
+            </button>
+            <button id="cancel-btn" class="w-full text-neutral-500 text-sm py-2 hover:text-neutral-900">
+                Cancel Transaction
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Script Loader -->
+<script type="module" src="/js/data.js"></script>
+
