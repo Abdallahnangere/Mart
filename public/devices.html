@@ -1,0 +1,63 @@
+<div class="max-w-md mx-auto h-full flex flex-col animate-fade-in">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <a href="/" data-link class="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors">
+            <i data-lucide="chevron-left" class="w-6 h-6 text-neutral-600"></i>
+        </a>
+        <h2 class="text-lg font-semibold text-neutral-900">Devices</h2>
+        <div class="w-10"></div>
+    </div>
+
+    <!-- Product Grid -->
+    <div class="flex-1 overflow-y-auto no-scrollbar pb-32">
+        <div class="grid grid-cols-2 gap-4" id="products-grid">
+            <!-- Loading Skeletons -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm h-48 animate-pulse"></div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm h-48 animate-pulse"></div>
+        </div>
+    </div>
+
+    <!-- Order Modal (Hidden) -->
+    <div id="order-modal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm hidden items-end sm:items-center justify-center animate-fade-in">
+        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-xl font-semibold text-neutral-900" id="modal-product-name">Product</h3>
+                    <p class="text-blue-600 font-bold text-lg mt-1" id="modal-product-price">₦0.00</p>
+                </div>
+                <button id="close-modal" class="p-2 bg-neutral-100 rounded-full">
+                    <i data-lucide="x" class="w-4 h-4 text-neutral-600"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 pt-2">
+                <input type="text" id="cust-name" placeholder="Full Name" class="w-full bg-neutral-100 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="tel" id="cust-phone" placeholder="Phone Number" class="w-full bg-neutral-100 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                <textarea id="cust-address" placeholder="Delivery Address" rows="3" class="w-full bg-neutral-100 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <div id="payment-details-box" class="hidden bg-blue-50 p-4 rounded-xl border border-blue-100 space-y-2">
+                <p class="text-xs text-blue-800 font-medium">Pay into this temporary account:</p>
+                <div class="flex justify-between text-sm">
+                    <span class="text-blue-600">Bank:</span>
+                    <span class="font-bold text-blue-900" id="pay-bank">...</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-blue-600">Account:</span>
+                    <span class="font-bold text-blue-900 font-mono" id="pay-acc">...</span>
+                </div>
+            </div>
+
+            <button id="device-pay-btn" class="w-full bg-neutral-900 text-white font-medium py-4 rounded-2xl shadow-lg active:scale-[0.98]">
+                Generate Account to Pay
+            </button>
+
+            <button id="device-verify-btn" class="hidden w-full bg-green-600 text-white font-medium py-4 rounded-2xl shadow-lg active:scale-[0.98]">
+                I Have Paid
+            </button>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="/js/devices.js"></script>
+
