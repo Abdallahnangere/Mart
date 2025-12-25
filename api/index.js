@@ -9,22 +9,22 @@ const app = express();
 const prisma = new PrismaClient();
 
 // --- CONFIGURATION ---
-const AMIGO_URL = 'https://amigo.ng/api/data/';
+const AMIGO_URL = process.env.AMIGO_URL;
 const AMIGO_KEY = process.env.AMIGO_API_KEY; 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASS = process.env.ADMIN_PASSWORD;
 
 // Flutterwave Config
+// Ensure FLW_PUBLIC_KEY and FLW_SECRET_KEY are in your .env or Vercel Env Variables
 const flw = new Flutterwave(process.env.FLW_PUBLIC_KEY, process.env.FLW_SECRET_KEY);
-const FLW_HASH = process.env.FLW_HASH; // Required for Webhook security
+const FLW_HASH = process.env.FLW_HASH; // Set this in your Flutterwave Webhook settings
 
 app.use(cors());
 app.use(express.json());
 
 // --- HELPER: AMIGO DELIVERY ---
-// Isolated function to handle data delivery to ensure reusability
 async function deliverData(tx) {
-    // Parse metadata to get plan IDs
+    // Retrieve technical IDs stored in description
     let meta = {};
     try { meta = JSON.parse(tx.description || '{}'); } catch(e) {}
 
@@ -35,14 +35,14 @@ async function deliverData(tx) {
         Ported_number: false
     };
 
-    console.log(`Attempting Delivery for ${tx.reference}...`);
+    console.log(`[Amigo] Attempting Delivery for ${tx.reference}...`);
 
     try {
         const amigo = await axios.post(AMIGO_URL, payload, {
             headers: { 
                 'X-API-Key': AMIGO_KEY, 
                 'Content-Type': 'application/json', 
-                'Idempotency-Key': tx.id // Prevents double delivery for same tx
+                'Idempotency-Key': tx.id // Safe retry using Transaction ID
             }
         });
         
@@ -54,12 +54,11 @@ async function deliverData(tx) {
                 amigoResponse: JSON.stringify(amigo.data) 
             } 
         });
-        console.log(`Delivery Success: ${tx.reference}`);
+        console.log(`[Amigo] Delivery Success: ${tx.reference}`);
         return { success: true, data: amigo.data };
 
     } catch (err) {
-        console.error(`Delivery Failed for ${tx.reference}:`, err.response?.data || err.message);
-        // Log failure but keep status as 'paid' so admin can retry
+        console.error(`[Amigo] Delivery Failed for ${tx.reference}:`, err.response?.data || err.message);
         return { success: false, error: err.response?.data };
     }
 }
@@ -74,16 +73,16 @@ const isAdmin = (req, res, next) => {
     else res.status(401).json({ error: "Invalid Credentials" });
 };
 
-// --- CUSTOMER ROUTES ---
+// --- ROUTES ---
 
-// 1. INIT PURCHASE (Generates DVA if possible)
+// 1. INIT PURCHASE (Generates REAL Account Number)
 app.post('/api/buy/init', async (req, res) => {
-    console.log("Init Order:", req.body);
+    console.log("[Init] Request:", req.body);
     const { amount, phone, type, networkId, planId, productId, productName } = req.body;
     
-    // Unique Reference
+    // Create unique reference
     const ref = `SAUKI-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const email = `customer${phone}@sauki.com`; // Placeholder email for DVA
+    const userEmail = `user${phone}@sauki-temp.com`; 
 
     // Metadata for delivery
     const metadata = {
@@ -93,37 +92,34 @@ app.post('/api/buy/init', async (req, res) => {
     };
 
     try {
-        // A. Attempt to create a Flutterwave Virtual Account for this transaction
-        // Note: This requires your FLW account to have Virtual Accounts enabled
-        let bankDetails = { bank: "Transfer to Admin", account: "Contact Support" };
+        // A. Call Flutterwave "Pay with Bank Transfer" to get a dynamic account
+        const flwPayload = {
+            tx_ref: ref,
+            amount: String(amount), // FLW expects string or number
+            email: userEmail,
+            phone_number: phone,
+            currency: "NGN",
+            client_ip: req.ip || "127.0.0.1",
+            device_fingerprint: "sauki-web-app",
+            fullname: "Sauki Customer",
+            is_permanent: false, // This ensures it's a dynamic account for this transaction
+            narration: `Sauki ${productName}`
+        };
+
+        // This call returns the account details immediately
+        const flwResponse = await flw.Charge.bank_transfer(flwPayload);
         
-        try {
-            const payload = {
-                email: email,
-                is_permanent: false, // Temporary account for this transaction
-                tx_ref: ref,
-                phonenumber: phone,
-                firstname: 'Sauki',
-                lastname: 'Customer',
-                narration: `Sauki Mart ${productName}`
-            };
-            
-            const response = await flw.VirtualAccount.create(payload);
-            if(response.status === 'success' && response.data) {
-                bankDetails = {
-                    bank: response.data.bank_name,
-                    account: response.data.account_number
-                };
-                // Store bank details in metadata for frontend retrieval if needed
-                metadata.bankDetails = bankDetails;
-            }
-        } catch (flwErr) {
-            console.warn("FLW DVA Creation Failed (Using fallback):", flwErr.message);
-            // Fallback: You might want to return your main company account here if DVA fails
+        // Check if FLW returned valid account details
+        if (flwResponse.status !== 'success' || !flwResponse.meta || !flwResponse.meta.authorization) {
+             console.error("[FLW Error]", flwResponse);
+             throw new Error("Could not generate account number from Flutterwave");
         }
 
+        const bankDetails = flwResponse.meta.authorization;
+        // Expected: { transfer_account: '...', transfer_bank: '...', transfer_amount: ... }
+
         // B. Create Database Record
-        const tx = await prisma.transaction.create({
+        await prisma.transaction.create({
             data: {
                 reference: ref, 
                 type: type || 'data', 
@@ -136,25 +132,28 @@ app.post('/api/buy/init', async (req, res) => {
             }
         });
         
-        // C. Return Details to Frontend
+        // C. Return REAL Details to Frontend
         res.json({ 
             success: true, 
             reference: ref,
-            bankName: bankDetails.bank,
-            accountNumber: bankDetails.account
+            bankName: bankDetails.transfer_bank,
+            accountNumber: bankDetails.transfer_account,
+            accountName: "Sauki Mart", // Usually usually matches merchant name or "FLW-MERCHANT"
+            payableAmount: bankDetails.transfer_amount
         });
 
     } catch (e) { 
-        console.error("Init Error:", e);
+        console.error("[Init Error]", e);
         res.status(500).json({ error: "System Error: " + e.message }); 
     }
 });
 
 // 2. WEBHOOK (The Brain) - Handles Payment Confirmation
 app.post('/api/webhook/flw', async (req, res) => {
-    // A. Verify Signature
+    // A. Verify Signature (Security)
     const signature = req.headers['verif-hash'];
     if (!signature || signature !== FLW_HASH) {
+        console.warn("[Webhook] Invalid Signature");
         return res.status(401).end();
     }
 
@@ -163,8 +162,7 @@ app.post('/api/webhook/flw', async (req, res) => {
     // B. Check for Successful Charge
     if (payload.event === 'charge.completed' && payload.data.status === 'successful') {
         const { tx_ref, amount } = payload.data;
-        
-        console.log(`Webhook Received for ${tx_ref}`);
+        console.log(`[Webhook] Payment confirmed for ${tx_ref}`);
 
         try {
             // C. Find Transaction
@@ -172,9 +170,9 @@ app.post('/api/webhook/flw', async (req, res) => {
             
             if (tx && (tx.status === 'pending' || tx.status === 'failed')) {
                 
-                // D. Security Check: Amount
+                // D. Check Amount
                 if (parseFloat(amount) < tx.amount) {
-                    console.error("Fraud Alert: Insufficient amount paid");
+                    console.error("[Webhook] Fraud Alert: Insufficient amount paid");
                     return res.status(400).end();
                 }
 
@@ -184,17 +182,17 @@ app.post('/api/webhook/flw', async (req, res) => {
                     data: { status: 'paid' } 
                 });
 
-                // F. Trigger Delivery (If it's a data plan)
+                // F. Trigger Delivery (If it's data)
                 if (tx.type === 'data') {
                     await deliverData(tx);
                 }
             }
         } catch (e) {
-            console.error("Webhook Processing Error:", e);
+            console.error("[Webhook] Processing Error:", e);
         }
     }
 
-    res.status(200).end(); // Always acknowledge webhook
+    res.status(200).end(); // Always acknowledge
 });
 
 // 3. VERIFY (Frontend Polling)
@@ -205,25 +203,21 @@ app.post('/api/buy/verify', async (req, res) => {
         
         if (!tx) return res.status(404).json({ error: "Not Found" });
         
-        // Scenario A: Webhook already handled it
+        // Delivered?
         if (tx.status === 'delivered') {
             return res.json({ payment: true, delivery: true, tx });
         }
         
-        // Scenario B: Paid but Delivery Failed/Pending
+        // Paid but not delivered?
         if (tx.status === 'paid') {
-            return res.json({ payment: true, delivery: false, message: "Payment received. Processing data..." });
+            // Attempt delivery again if it failed previously
+            if(tx.type === 'data' && !tx.amigoResponse) {
+                 await deliverData(tx);
+            }
+            return res.json({ payment: true, delivery: false, message: "Processing data..." });
         }
 
-        // Scenario C: Still Pending (User might be clicking button eagerly)
-        // In a live DVA flow, we usually wait for webhook. 
-        // But we can check FLW just in case webhook failed.
-        if (tx.status === 'pending') {
-             // Optional: Force check FLW verify here if critical, 
-             // but usually strictly relying on Webhook is safer for DVA.
-             return res.json({ payment: false, delivery: false });
-        }
-
+        // Still pending
         return res.json({ payment: false, delivery: false });
 
     } catch (e) {
@@ -231,7 +225,7 @@ app.post('/api/buy/verify', async (req, res) => {
     }
 });
 
-// --- DATA & PRODUCTS ---
+// --- GETTERS & ADMIN ---
 app.get('/api/plans', async (req, res) => {
     try {
         const plans = await prisma.dataPlan.findMany({ orderBy: { price: 'asc' }});
@@ -256,7 +250,6 @@ app.get('/api/track/:phone', async (req, res) => {
     } catch (e) { res.status(500).json([]); }
 });
 
-// --- ADMIN ---
 app.post('/api/admin/login', (req, res) => {
     const { u, p } = req.body;
     if(u === ADMIN_EMAIL && p === ADMIN_PASS) {
@@ -272,15 +265,13 @@ app.get('/api/admin/transactions', isAdmin, async (req, res) => {
     res.json(txs);
 });
 
-// Manual Retry by Admin (If webhook missed or Amigo failed)
+// Admin Retry
 app.post('/api/admin/retry', isAdmin, async (req, res) => {
     const { id } = req.body;
     const tx = await prisma.transaction.findUnique({ where: { id } });
     if(!tx) return res.status(404).json({error: "Not Found"});
     
-    // Manual Delivery
     const result = await deliverData(tx);
-    
     if(result.success) res.json({ success: true });
     else res.status(500).json({ error: "Retry Failed", details: result.error });
 });
@@ -289,13 +280,7 @@ app.post('/api/admin/plan', isAdmin, async (req, res) => {
     const { network, planId, name, price } = req.body;
     try {
         await prisma.dataPlan.create({ 
-            data: { 
-                network: String(network), 
-                networkId: Number(network),
-                planId: Number(planId),     
-                name, 
-                price: parseFloat(price)
-            } 
+            data: { network: String(network), networkId: Number(network), planId: Number(planId), name, price: parseFloat(price) } 
         });
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
