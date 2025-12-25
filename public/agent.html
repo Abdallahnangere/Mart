@@ -1,0 +1,70 @@
+<div class="max-w-md mx-auto h-full flex flex-col animate-fade-in">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <a href="/" data-link class="p-2 -ml-2 rounded-full hover:bg-neutral-100 transition-colors">
+            <i data-lucide="chevron-left" class="w-6 h-6 text-neutral-600"></i>
+        </a>
+        <h2 class="text-lg font-semibold text-neutral-900">Agent Portal</h2>
+        <div class="w-10"></div>
+    </div>
+
+    <!-- Login/Register Toggle -->
+    <div class="flex bg-neutral-100 rounded-xl p-1 mb-6">
+        <button id="tab-login" class="flex-1 py-2 text-sm font-medium rounded-lg bg-white shadow-sm text-neutral-900 transition-all">Login</button>
+        <button id="tab-register" class="flex-1 py-2 text-sm font-medium rounded-lg text-neutral-500 transition-all">Register</button>
+    </div>
+
+    <!-- Forms Container -->
+    <div class="flex-1 overflow-y-auto pb-10">
+        
+        <!-- Login Form -->
+        <div id="view-login" class="space-y-4">
+            <input type="email" id="login-email" placeholder="Agent Email" class="w-full bg-white border border-neutral-200 rounded-xl p-4 outline-none focus:border-blue-500">
+            <input type="password" id="login-pin" placeholder="PIN" class="w-full bg-white border border-neutral-200 rounded-xl p-4 outline-none focus:border-blue-500">
+            <button id="btn-login" class="w-full bg-neutral-900 text-white font-medium py-4 rounded-2xl active:scale-[0.98]">
+                Access Dashboard
+            </button>
+        </div>
+
+        <!-- Register Form -->
+        <div id="view-register" class="space-y-4 hidden">
+            <input type="text" id="reg-name" placeholder="Full Name" class="w-full bg-white border border-neutral-200 rounded-xl p-4 outline-none focus:border-blue-500">
+            <input type="tel" id="reg-phone" placeholder="Phone Number" class="w-full bg-white border border-neutral-200 rounded-xl p-4 outline-none focus:border-blue-500">
+            <input type="email" id="reg-email" placeholder="Email Address" class="w-full bg-white border border-neutral-200 rounded-xl p-4 outline-none focus:border-blue-500">
+            <input type="password" id="reg-pin" placeholder="Set 4-Digit PIN" maxlength="4" class="w-full bg-white border border-neutral-200 rounded-xl p-4 outline-none focus:border-blue-500">
+            <button id="btn-register" class="w-full bg-blue-600 text-white font-medium py-4 rounded-2xl active:scale-[0.98]">
+                Submit Application
+            </button>
+        </div>
+
+        <!-- Dashboard (Hidden Initially) -->
+        <div id="view-dashboard" class="hidden space-y-6">
+            <div class="bg-neutral-900 text-white p-6 rounded-3xl shadow-lg">
+                <p class="text-neutral-400 text-xs uppercase tracking-wider">Wallet Balance</p>
+                <h1 class="text-3xl font-bold mt-1" id="dash-balance">₦0.00</h1>
+                <div class="mt-4 flex gap-3">
+                    <button class="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-lg text-sm font-medium transition-colors">Fund Wallet</button>
+                    <button class="flex-1 bg-white text-neutral-900 py-2 rounded-lg text-sm font-medium transition-colors">Sell Data</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl border border-neutral-100">
+                <h3 class="text-sm font-semibold text-neutral-900 mb-4">Quick Stats</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-neutral-50 p-4 rounded-xl">
+                        <span class="text-2xl font-bold text-neutral-900 block" id="stat-sales">0</span>
+                        <span class="text-xs text-neutral-500">Today's Sales</span>
+                    </div>
+                    <div class="bg-neutral-50 p-4 rounded-xl">
+                        <span class="text-2xl font-bold text-neutral-900 block" id="stat-commission">₦0</span>
+                        <span class="text-xs text-neutral-500">Commission</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="module" src="/js/agent.js"></script>
+
