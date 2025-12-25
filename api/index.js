@@ -9,7 +9,7 @@ const app = express();
 const prisma = new PrismaClient();
 
 // --- CONFIGURATION ---
-const AMIGO_URL = process.env.AMIGO_URL;
+const AMIGO_URL = process.env.AMIGO_BASE_URL;
 const AMIGO_KEY = process.env.AMIGO_API_KEY; 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 const ADMIN_PASS = process.env.ADMIN_PASSWORD;
