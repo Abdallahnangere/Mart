@@ -7,53 +7,106 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enums for strict status control
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REVERSED
+}
+
+enum TransactionType {
+  WALLET_FUNDING
+  DATA_PURCHASE
+  PRODUCT_PURCHASE
+  COMMISSION
+}
+
+enum NetworkProvider {
+  MTN
+  GLO
+  AIRTEL
+  NMOBILE // 9Mobile
+}
+
 model Product {
   id          String   @id @default(uuid())
   name        String
-  price       Float
-  image       String
-  description String
-  inStock     Boolean  @default(true)
+  description String?
+  priceInKobo Int      @default(0) // Stored in Kobo (e.g., 10000 = N100.00)
+  stock       Int      @default(0)
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions Transaction[]
 }
 
 model DataPlan {
-  id        String @id @default(uuid())
-  network   String
-  networkId Int
-  planId    Int
-  name      String
-  price     Float
+  id           String          @id @default(uuid())
+  network      NetworkProvider
+  planName     String
+  apiPlanId    String          // External ID mapping for Amigo.ng
+  priceInKobo  Int             @default(0)
+  sellingPrice Int             @default(0) // Price shown to user
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  transactions Transaction[]
 }
 
 model Agent {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String   @unique
-  email     String?
-  pin       String
-  balance   Float    @default(0.0)
-  status    String   @default("PENDING")
+  id               String   @id @default(uuid())
+  email            String   @unique
+  passwordHash     String
+  fullName         String
+  phoneNumber      String?
   
-  // Static Funding Account
-  virtualAccountBank    String?
-  virtualAccountNumber  String?
-  virtualAccountName    String?
-  
-  createdAt DateTime @default(now())
+  // Financials
+  walletBalance    Int      @default(0) // Stored in Kobo
+  virtualAccNumber String?  @unique
+  virtualBankName  String?
+  referralCode     String   @unique
+
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  transactions     Transaction[]
 }
 
 model Transaction {
-  id            String   @id @default(uuid())
-  reference     String   @unique
-  type          String   
-  status        String   
-  amount        Float
-  customerPhone String
-  customerName  String?
-  description   String?
-  network       String?
-  planName      String?
-  agentId       String?
-  amigoResponse String?  // Stores API response for debugging
-  createdAt     DateTime @default(now())
+  id              String            @id @default(uuid())
+  reference       String            @unique // Internal unique ref
+  externalRef     String?           // Payment gateway ref (Flutterwave/Amigo)
+  
+  amountInKobo    Int
+  feeInKobo       Int               @default(0)
+  totalInKobo     Int               // amount + fee
+  
+  status          TransactionStatus @default(PENDING)
+  type            TransactionType
+  
+  description     String?
+  metadata        Json?             // Stores snapshot of item bought
+  
+  // Relations
+  agentId         String
+  agent           Agent             @relation(fields: [agentId], references: [id])
+  
+  productId       String?
+  product         Product?          @relation(fields: [productId], references: [id])
+  
+  dataPlanId      String?
+  dataPlan        DataPlan?         @relation(fields: [dataPlanId], references: [id])
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  completedAt     DateTime?
+
+  @@index([agentId])
+  @@index([status])
+  @@index([reference])
 }
